@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Stats globales -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="label">Turnos este mes</div>
+    <div class="value">{{ reporte.total or 0 }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Pacientes únicos</div>
+    <div class="value">{{ reporte.unique_patients or 0 }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Mensajes pendientes</div>
+    <div class="value" style="color: {% if mensajes_pendientes > 0 %}#e24b4a{% else %}inherit{% endif %}">
+      {{ mensajes_pendientes }}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Profesionales activos</div>
+    <div class="value">{{ profs|length }}</div>
+  </div>
+</div>
+
+<!-- Turnos de hoy por profesional -->
+<h2 style="font-size:14px; font-weight:500; margin-bottom:14px;">
+  Turnos de hoy — {{ hoy }}
+</h2>
+
+{% if turnos_hoy %}
+  <div class="grid-{% if turnos_hoy|length > 2 %}3{% else %}2{% endif %}" style="margin-bottom:24px;">
+    {% for item in turnos_hoy %}
+    <div class="card">
+      <div class="card-title">{{ item.profesional.name }}</div>
+      {% if item.profesional.specialty %}
+        <div style="font-size:11px; color:#6b6a64; margin-top:-8px; margin-bottom:10px;">
+          {{ item.profesional.specialty }}
+        </div>
+      {% endif %}
+
+      {% if item.turnos %}
+        <table>
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Paciente</th>
+              <th>Obra social</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in item.turnos %}
+            <tr>
+              <td style="font-weight:500; white-space:nowrap;">
+                {{ t.time.strftime('%H:%M') }}
+              </td>
+              <td>{{ t.patient_name }}</td>
+              <td style="color:#6b6a64;">{{ t.obra_social or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div style="font-size:11px; color:#6b6a64; margin-top:10px;">
+          Total: {{ item.total }} turno(s)
+        </div>
+      {% else %}
+        <div class="empty" style="padding:16px;">Sin turnos hoy</div>
+      {% endif %}
+
+      <div style="margin-top:12px;">
+        <a href="{{ url_for('web.agenda', prof_id=item.profesional.id) }}" class="btn btn-sm">
+          Ver agenda completa
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="empty">No hay profesionales configurados.</div>
+  </div>
+{% endif %}
+
+{% endblock %}
