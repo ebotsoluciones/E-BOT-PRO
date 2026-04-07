@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block page_title %}Reportes{% endblock %}
+
+{% block content %}
+
+<!-- Filtros -->
+<div class="card" style="margin-bottom:20px;">
+  <form method="GET" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin:0; flex:1; min-width:140px;">
+      <label>Profesional</label>
+      <select name="prof_id">
+        <option value="">Consolidado clínica</option>
+        {% for p in profs %}
+          <option value="{{ p.id }}" {% if p.id == prof_id %}selected{% endif %}>
+            {{ p.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0; min-width:120px;">
+      <label>Mes</label>
+      <select name="mes">
+        {% for i, nombre in enumerate(meses, 1) %}
+          <option value="{{ i }}" {% if i == mes %}selected{% endif %}>{{ nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0; min-width:80px;">
+      <label>Año</label>
+      <input type="number" name="año" value="{{ año }}" min="2024" max="2030" style="width:90px;">
+    </div>
+    <button type="submit" class="btn btn-primary">Ver reporte</button>
+  </form>
+</div>
+
+<!-- Resumen -->
+<div class="stat-grid" style="margin-bottom:24px;">
+  <div class="stat-card">
+    <div class="label">Turnos del período</div>
+    <div class="value">{{ reporte.summary.total or 0 }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Pacientes únicos</div>
+    <div class="value">{{ reporte.summary.unique_patients or 0 }}</div>
+  </div>
+</div>
+
+<!-- Detalle -->
+<div class="card">
+  <div class="card-title">Detalle de turnos</div>
+  {% if reporte.detail %}
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Hora</th>
+          <th>Paciente</th>
+          <th>Obra social</th>
+          {% if not prof_id %}<th>Profesional</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in reporte.detail %}
+        <tr>
+          <td style="white-space:nowrap;">{{ t.date.strftime('%d/%m/%Y') }}</td>
+          <td>{{ t.time.strftime('%H:%M') }}</td>
+          <td>{{ t.patient_name }}</td>
+          <td style="color:#6b6a64;">{{ t.obra_social or '—' }}</td>
+          {% if not prof_id %}
+            <td style="color:#6b6a64;">{{ t.professional_name }}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty">Sin turnos para el período seleccionado.</div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* Jinja2 no tiene enumerate nativo — se usa loop.index -->
+  /* El template usa loop.index de Jinja para el select de meses */
+</style>
+{% endblock %}
