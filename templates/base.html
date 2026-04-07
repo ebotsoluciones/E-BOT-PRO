@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}E-BOT PRO{% endblock %} — Panel Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #f8f7f4;
+      --surface:  #ffffff;
+      --border:   #e2e0d8;
+      --text:     #1a1a18;
+      --muted:    #6b6a64;
+      --accent:   #1d9e75;
+      --accent-d: #0f6e56;
+      --danger:   #e24b4a;
+      --warn:     #ba7517;
+      --radius:   8px;
+      --sidebar:  220px;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* ── Layout ── */
+    .layout { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: var(--sidebar);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 10;
+    }
+
+    .sidebar-brand {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-brand .logo {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .sidebar-brand .sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-link:hover { background: var(--bg); color: var(--text); }
+    .nav-link.active { background: #e1f5ee; color: var(--accent-d); font-weight: 500; }
+    .nav-link .icon { font-size: 15px; width: 18px; text-align: center; }
+
+    .sidebar-footer {
+      padding: 12px 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .main {
+      margin-left: var(--sidebar);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar h1 { font-size: 16px; font-weight: 500; }
+    .topbar .fecha { font-size: 12px; color: var(--muted); }
+
+    .content { padding: 24px; flex: 1; }
+
+    /* ── Componentes ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .stat-card .label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .stat-card .value { font-size: 24px; font-weight: 600; color: var(--text); }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      font-weight: 500;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg); }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .badge-green  { background: #e1f5ee; color: #085041; }
+    .badge-red    { background: #fcebeb; color: #791f1f; }
+    .badge-amber  { background: #faeeda; color: #633806; }
+    .badge-gray   { background: #f1efe8; color: #444441; }
+
+    btn, .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--bg); }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent-d); }
+    .btn-primary:hover { background: var(--accent-d); }
+    .btn-danger  { background: var(--danger); color: #fff; border-color: #a32d2d; }
+    .btn-danger:hover { background: #a32d2d; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+    input, select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 13px;
+      background: var(--surface);
+      color: var(--text);
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+
+    .flash {
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 16px;
+      background: #e1f5ee;
+      color: #085041;
+      border: 1px solid #9fe1cb;
+    }
+    .flash.error {
+      background: #fcebeb;
+      color: #791f1f;
+      border-color: #f09595;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ── Responsive básico ── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+{% if session.get('admin_logged') %}
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">🦙 E-BOT PRO</div>
+      <div class="sub">Panel administrativo</div>
+    </div>
+    <div class="sidebar-nav">
+      <a href="{{ url_for('web.dashboard') }}"
+         class="nav-link {% if request.endpoint == 'web.dashboard' %}active{% endif %}">
+        <span class="icon">📊</span> Dashboard
+      </a>
+      <a href="{{ url_for('web.agenda') }}"
+         class="nav-link {% if request.endpoint == 'web.agenda' %}active{% endif %}">
+        <span class="icon">📅</span> Agenda
+      </a>
+      <a href="{{ url_for('web.mensajes') }}"
+         class="nav-link {% if request.endpoint == 'web.mensajes' %}active{% endif %}">
+        <span class="icon">💬</span> Mensajes
+      </a>
+      <a href="{{ url_for('web.reportes') }}"
+         class="nav-link {% if request.endpoint == 'web.reportes' %}active{% endif %}">
+        <span class="icon">📈</span> Reportes
+      </a>
+    </div>
+    <div class="sidebar-footer">
+      <form method="POST" action="{{ url_for('web.logout') }}">
+        <button type="submit" class="btn btn-sm" style="width:100%; justify-content:center;">
+          Cerrar sesión
+        </button>
+      </form>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1>{% block page_title %}Panel admin{% endblock %}</h1>
+      <span class="fecha">{{ now }}</span>
+    </div>
+    <div class="content">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          {% for m in messages %}
+            <div class="flash {% if '❌' in m %}error{% endif %}">{{ m }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+</div>
+{% else %}
+  {% block auth_content %}{% endblock %}
+{% endif %}
+
+</body>
+</html>
