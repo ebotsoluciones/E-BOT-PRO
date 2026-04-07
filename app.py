@@ -7,9 +7,10 @@ import os
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
-from config   import SECRET_KEY, validate_config
-from db       import init_db
-from handlers import procesar
+from config      import SECRET_KEY, validate_config
+from db          import init_db
+from handlers    import procesar
+from web.routes  import web_bp
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -17,6 +18,15 @@ app.secret_key = SECRET_KEY
 # ── Startup ───────────────────────────────────────────────────────────────────
 validate_config()
 init_db()
+
+# ── Blueprints ────────────────────────────────────────────────────────────────
+app.register_blueprint(web_bp, url_prefix="/admin")
+
+# ── Fecha actual disponible en todos los templates ────────────────────────────
+from datetime import datetime
+@app.context_processor
+def inject_now():
+    return {"now": datetime.now().strftime("%d/%m/%Y %H:%M")}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -34,14 +44,6 @@ def webhook():
     resp   = MessagingResponse()
     procesar(numero, body, resp)
     return str(resp), 200, {"Content-Type": "text/xml"}
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# RUTAS PANEL WEB (Fase 6 — placeholder)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# from web.routes import web_bp
-# app.register_blueprint(web_bp, url_prefix="/admin")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
