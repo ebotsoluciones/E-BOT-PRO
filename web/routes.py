@@ -1,0 +1,282 @@
+"""
+web/routes.py — rutas del panel web E-BOT PRO 🦙🔥
+
+Rutas:
+  GET  /admin/              → login
+  POST /admin/login         → autenticar
+  GET  /admin/dashboard     → vista principal
+  GET  /admin/agenda        → agenda por profesional y fecha
+  GET  /admin/pacientes     → listado de pacientes
+  GET  /admin/mensajes      → mensajes pendientes
+  GET  /admin/reportes      → reportes mensuales
+  POST /admin/turno/nuevo   → crear turno manual
+  POST /admin/turno/cancelar → cancelar turno
+  POST /admin/bloqueo/nuevo → bloquear horario
+  POST /admin/logout        → cerrar sesión
+"""
+
+from datetime import datetime, date
+from flask import (
+    Blueprint, render_template, request,
+    redirect, url_for, session, flash, jsonify,
+)
+from db import (
+    get_professionals, get_professional_by_id,
+    get_appointments_by_date, get_upcoming_appointments,
+    get_pending_messages, mark_message_read, mark_all_read,
+    get_report_by_month, get_patient_by_id,
+)
+from services import (
+    listar_profesionales, horarios_libres,
+    agregar_turno, cancelar_turno_por_slot,
+    bloquear_horario, bloquear_dia_completo,
+    texto_reporte,
+)
+
+web_bp = Blueprint("web", __name__)
+
+# ── Clave de acceso simple (en producción usar DB de admins) ──────────────────
+ADMIN_PASSWORD = "ebot2025"  # TODO: mover a variable de entorno WEB_PASSWORD
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AUTH
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def login_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("admin_logged"):
+            return redirect(url_for("web.login"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@web_bp.route("/")
+def login():
+    if session.get("admin_logged"):
+        return redirect(url_for("web.dashboard"))
+    return render_template("login.html")
+
+
+@web_bp.route("/login", methods=["POST"])
+def do_login():
+    password = request.form.get("password", "")
+    if password == ADMIN_PASSWORD:
+        session["admin_logged"] = True
+        return redirect(url_for("web.dashboard"))
+    flash("Contraseña incorrecta")
+    return redirect(url_for("web.login"))
+
+
+@web_bp.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("web.login"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DASHBOARD
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/dashboard")
+@login_required
+def dashboard():
+    hoy       = date.today()
+    profs     = listar_profesionales()
+    mensajes  = get_pending_messages()
+    reporte   = get_report_by_month(hoy.year, hoy.month)
+
+    # Turnos de hoy por profesional
+    turnos_hoy = []
+    for p in profs:
+        lista = get_appointments_by_date(p["id"], hoy.isoformat())
+        turnos_hoy.append({
+            "profesional": p,
+            "turnos":      lista,
+            "total":       len(lista),
+        })
+
+    return render_template("dashboard.html",
+        profs=profs,
+        turnos_hoy=turnos_hoy,
+        mensajes_pendientes=len(mensajes),
+        reporte=reporte["summary"],
+        hoy=hoy.strftime("%d/%m/%Y"),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# AGENDA
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/agenda")
+@login_required
+def agenda():
+    profs      = listar_profesionales()
+    prof_id    = request.args.get("prof_id", type=int)
+    fecha_str  = request.args.get("fecha", date.today().strftime("%d/%m/%Y"))
+
+    turnos     = []
+    horarios   = []
+    prof_sel   = None
+
+    if prof_id:
+        try:
+            fecha_iso = datetime.strptime(fecha_str, "%d/%m/%Y").date().isoformat()
+        except ValueError:
+            fecha_iso = date.today().isoformat()
+            fecha_str = date.today().strftime("%d/%m/%Y")
+
+        prof_sel = get_professional_by_id(prof_id)
+        turnos   = get_appointments_by_date(prof_id, fecha_iso)
+        horarios = horarios_libres(prof_id, fecha_str)
+
+    return render_template("agenda.html",
+        profs=profs,
+        prof_sel=prof_sel,
+        prof_id=prof_id,
+        fecha=fecha_str,
+        turnos=turnos,
+        horarios=horarios,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MENSAJES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/mensajes")
+@login_required
+def mensajes():
+    prof_id  = request.args.get("prof_id", type=int)
+    profs    = listar_profesionales()
+    mensajes = get_pending_messages(prof_id)
+    return render_template("mensajes.html",
+        mensajes=mensajes,
+        profs=profs,
+        prof_id=prof_id,
+    )
+
+
+@web_bp.route("/mensajes/leer", methods=["POST"])
+@login_required
+def marcar_leido():
+    prof_id = request.form.get("prof_id", type=int)
+    mark_all_read(prof_id)
+    flash("✅ Mensajes marcados como leídos.")
+    return redirect(url_for("web.mensajes", prof_id=prof_id))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REPORTES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/reportes")
+@login_required
+def reportes():
+    hoy     = date.today()
+    año     = request.args.get("año",  hoy.year,  type=int)
+    mes     = request.args.get("mes",  hoy.month, type=int)
+    prof_id = request.args.get("prof_id", type=int)
+    profs   = listar_profesionales()
+
+    reporte = get_report_by_month(año, mes, prof_id)
+
+    return render_template("reportes.html",
+        profs=profs,
+        prof_id=prof_id,
+        año=año,
+        mes=mes,
+        reporte=reporte,
+        meses=_nombres_meses(),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TURNO — nuevo y cancelar (API JSON para el panel)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/turno/nuevo", methods=["POST"])
+@login_required
+def nuevo_turno():
+    prof_id    = request.form.get("prof_id",    type=int)
+    patient_id = request.form.get("patient_id", type=int)
+    fecha      = request.form.get("fecha")
+    hora       = request.form.get("hora")
+
+    if not all([prof_id, patient_id, fecha, hora]):
+        flash("❌ Faltan datos para crear el turno.")
+        return redirect(url_for("web.agenda", prof_id=prof_id, fecha=fecha))
+
+    try:
+        agregar_turno(prof_id, patient_id, fecha, hora, created_by="web_admin")
+        flash(f"✅ Turno creado: {fecha} {hora} hs")
+    except Exception as e:
+        flash(f"❌ Error al crear turno: {e}")
+
+    return redirect(url_for("web.agenda", prof_id=prof_id, fecha=fecha))
+
+
+@web_bp.route("/turno/cancelar", methods=["POST"])
+@login_required
+def cancelar_turno_web():
+    prof_id = request.form.get("prof_id", type=int)
+    fecha   = request.form.get("fecha")
+    hora    = request.form.get("hora")
+
+    turno = cancelar_turno_por_slot(prof_id, fecha, hora, cancelled_by="web_admin")
+    if turno:
+        flash(f"✅ Turno cancelado: {turno['patient_name']} — {fecha} {hora} hs")
+    else:
+        flash("❌ No se encontró el turno.")
+
+    return redirect(url_for("web.agenda", prof_id=prof_id, fecha=fecha))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BLOQUEO
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/bloqueo/nuevo", methods=["POST"])
+@login_required
+def nuevo_bloqueo():
+    prof_id = request.form.get("prof_id", type=int)
+    fecha   = request.form.get("fecha")
+    hora    = request.form.get("hora")
+    todos   = request.form.get("todos") == "1"
+
+    if todos:
+        bloquear_dia_completo(prof_id, fecha, created_by="web_admin")
+        flash(f"✅ Día {fecha} bloqueado completo.")
+    else:
+        bloquear_horario(prof_id, fecha, hora, created_by="web_admin")
+        flash(f"✅ Horario bloqueado: {fecha} {hora} hs")
+
+    return redirect(url_for("web.agenda", prof_id=prof_id, fecha=fecha))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API JSON — horarios libres (para selector dinámico en el panel)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/api/horarios")
+@login_required
+def api_horarios():
+    prof_id = request.args.get("prof_id", type=int)
+    fecha   = request.args.get("fecha")
+    if not prof_id or not fecha:
+        return jsonify([])
+    return jsonify(horarios_libres(prof_id, fecha))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _nombres_meses():
+    return [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
