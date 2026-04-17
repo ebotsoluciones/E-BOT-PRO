@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Acceso{% endblock %}
+{% block auth_content %}
+<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; background:#f8f7f4;">
+  <div style="width:320px;">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div style="font-size:32px;">🦙</div>
+      <div style="font-size:18px; font-weight:600; color:#1d9e75; margin-top:8px;">E-BOT PRO</div>
+      <div style="font-size:13px; color:#6b6a64; margin-top:4px;">Panel administrativo</div>
+    </div>
+    <div class="card">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="flash error" style="margin-bottom:14px;">{{ messages[0] }}</div>
+        {% endif %}
+      {% endwith %}
+      <form method="POST" action="{{ url_for('web.do_login') }}">
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" name="password" placeholder="••••••••" autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">
+          Ingresar
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
