@@ -4,25 +4,27 @@
 
 {% block content %}
 
-<!-- Filtros -->
 <div class="card" style="margin-bottom:20px;">
   <form method="GET" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
-    <div class="form-group" style="margin:0; flex:1; min-width:140px;">
+    <div class="form-group" style="margin:0; flex:1; min-width:180px;">
       <label>Profesional</label>
       <select name="prof_id">
         <option value="">Consolidado clínica</option>
         {% for p in profs %}
           <option value="{{ p.id }}" {% if p.id == prof_id %}selected{% endif %}>
-            {{ p.name }}
+            {{ p.last_name }}, {{ p.first_name }}{% if p.specialty %} — {{ p.specialty }}{% endif %}
           </option>
         {% endfor %}
       </select>
     </div>
-    <div class="form-group" style="margin:0; min-width:120px;">
+    <div class="form-group" style="margin:0; min-width:140px;">
       <label>Mes</label>
       <select name="mes">
-        {% for i, nombre in enumerate(meses, 1) %}
-          <option value="{{ i }}" {% if i == mes %}selected{% endif %}>{{ nombre }}</option>
+        {% set nombres_meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'] %}
+        {% for nombre in nombres_meses %}
+          <option value="{{ loop.index }}" {% if loop.index == mes %}selected{% endif %}>
+            {{ nombre }}
+          </option>
         {% endfor %}
       </select>
     </div>
@@ -34,7 +36,6 @@
   </form>
 </div>
 
-<!-- Resumen -->
 <div class="stat-grid" style="margin-bottom:24px;">
   <div class="stat-card">
     <div class="label">Turnos del período</div>
@@ -46,7 +47,6 @@
   </div>
 </div>
 
-<!-- Detalle -->
 <div class="card">
   <div class="card-title">Detalle de turnos</div>
   {% if reporte.detail %}
@@ -68,7 +68,7 @@
           <td>{{ t.patient_name }}</td>
           <td style="color:#6b6a64;">{{ t.obra_social or '—' }}</td>
           {% if not prof_id %}
-            <td style="color:#6b6a64;">{{ t.professional_name }}</td>
+            <td style="color:#6b6a64;">{{ t.prof_last_name }}, {{ t.prof_first_name }}</td>
           {% endif %}
         </tr>
         {% endfor %}
@@ -79,11 +79,4 @@
   {% endif %}
 </div>
 
-{% endblock %}
-
-{% block extra_head %}
-<style>
-  /* Jinja2 no tiene enumerate nativo — se usa loop.index -->
-  /* El template usa loop.index de Jinja para el select de meses */
-</style>
 {% endblock %}
