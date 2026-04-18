@@ -406,4 +406,10 @@ ALTER COLUMN name DROP NOT NULL;
 ```
 
 **Instalaciones nuevas** — no requieren este paso.
+MODO_TEST=true en las variables de Railway — eso bypasea la validación de admins y cualquiera puede escribir adm para entrar.
+Ahora seguramente lo cambiaste a false o lo sacaste. Dos opciones:
+Opción A — Insertar tu número en la tabla admins (correcto para producción)
+sqlINSERT INTO admins (phone, name, role)
+VALUES ('whatsapp:+5493515645624', 'Eduard', 'general');
+Opción B — Dejar MODO_TEST=true por ahora mientras seguís desarrollando, y escribís adm para entrar al panel admin.
 *E-BOT PRO — ebotsoluciones 🦙*
