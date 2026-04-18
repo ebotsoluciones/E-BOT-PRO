@@ -32,8 +32,8 @@ from services import (
     bloquear_horario, bloquear_dia_completo,
     texto_reporte,
 )
-
-web_bp = Blueprint("web", __name__, template_folder="templates")
+web_bp = Blueprint("web", __name__)
+# web_bp = Blueprint("web", __name__, template_folder="templates")
 
 # ── Clave de acceso simple (en producción usar DB de admins) ──────────────────
 ADMIN_PASSWORD = "ebot2025"  # TODO: mover a variable de entorno WEB_PASSWORD
