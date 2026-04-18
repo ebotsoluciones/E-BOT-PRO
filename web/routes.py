@@ -33,7 +33,7 @@ from services import (
     texto_reporte,
 )
 
-web_bp = Blueprint("web", __name__)
+web_bp = Blueprint("web", __name__, template_folder="templates")
 
 # ── Clave de acceso simple (en producción usar DB de admins) ──────────────────
 ADMIN_PASSWORD = "ebot2025"  # TODO: mover a variable de entorno WEB_PASSWORD
@@ -280,3 +280,80 @@ def _nombres_meses():
         "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
     ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROFESIONALES — ABM
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/profesionales")
+@login_required
+def profesionales():
+    from db import get_professionals
+    profs = get_professionals(active_only=False)
+    return render_template("profesionales.html", profs=profs)
+
+
+@web_bp.route("/profesionales/nuevo", methods=["POST"])
+@login_required
+def crear_profesional():
+    from db import create_professional
+    last_name  = request.form.get("last_name", "").strip()
+    first_name = request.form.get("first_name", "").strip()
+    specialty  = request.form.get("specialty", "").strip() or None
+    phone      = request.form.get("phone", "").strip() or None
+    if last_name and first_name:
+        create_professional(last_name, first_name, specialty, phone)
+        flash(f"✅ Profesional {last_name}, {first_name} creado correctamente.")
+    else:
+        flash("❌ Apellido y nombre son obligatorios.")
+    return redirect(url_for("web.profesionales"))
+
+
+@web_bp.route("/profesionales/editar", methods=["POST"])
+@login_required
+def editar_profesional():
+    from db import update_professional
+    prof_id    = request.form.get("prof_id", type=int)
+    last_name  = request.form.get("last_name", "").strip()
+    first_name = request.form.get("first_name", "").strip()
+    specialty  = request.form.get("specialty", "").strip() or None
+    phone      = request.form.get("phone", "").strip() or None
+    if prof_id and last_name and first_name:
+        update_professional(prof_id, last_name, first_name, specialty, phone)
+        flash("✅ Profesional actualizado.")
+    else:
+        flash("❌ Datos incompletos.")
+    return redirect(url_for("web.profesionales"))
+
+
+@web_bp.route("/profesionales/<int:prof_id>/baja", methods=["POST"])
+@login_required
+def desactivar_profesional(prof_id):
+    from db import deactivate_professional
+    deactivate_professional(prof_id)
+    flash("✅ Profesional dado de baja.")
+    return redirect(url_for("web.profesionales"))
+
+
+@web_bp.route("/profesionales/horarios", methods=["POST"])
+@login_required
+def guardar_horarios():
+    from db import upsert_schedule, delete_schedule
+    prof_id = request.form.get("prof_id", type=int)
+    if not prof_id:
+        flash("❌ Profesional no encontrado.")
+        return redirect(url_for("web.profesionales"))
+
+    delete_schedule(prof_id)
+
+    dias_nombres = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+    for i in range(7):
+        if request.form.get(f"active_{i}"):
+            start = request.form.get(f"start_{i}", "09:00")
+            end   = request.form.get(f"end_{i}",   "18:00")
+            slot  = int(request.form.get(f"slot_{i}", 30))
+            upsert_schedule(prof_id, i, start, end, slot)
+
+    flash("✅ Horarios guardados correctamente.")
+    return redirect(url_for("web.profesionales"))
