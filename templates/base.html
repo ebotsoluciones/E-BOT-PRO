@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}E-BOT PRO{% endblock %} — Panel Admin</title>
+  <title>{% block title %}Panel Admin{% endblock %} — {{ config.NOMBRE_CLINICA }}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -30,7 +29,6 @@
       line-height: 1.5;
     }
 
-    /* ── Layout ── */
     .layout { display: flex; min-height: 100vh; }
 
     .sidebar {
@@ -49,14 +47,15 @@
       border-bottom: 1px solid var(--border);
     }
     .sidebar-brand .logo {
-      font-size: 16px;
+      font-size: 13px;
       font-weight: 600;
       color: var(--accent);
+      line-height: 1.3;
     }
     .sidebar-brand .sub {
       font-size: 11px;
       color: var(--muted);
-      margin-top: 2px;
+      margin-top: 3px;
     }
 
     .sidebar-nav {
@@ -107,7 +106,6 @@
 
     .content { padding: 24px; flex: 1; }
 
-    /* ── Componentes ── */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -174,7 +172,7 @@
     .badge-amber  { background: #faeeda; color: #633806; }
     .badge-gray   { background: #f1efe8; color: #444441; }
 
-    btn, .btn {
+    .btn {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -235,7 +233,6 @@
       font-size: 13px;
     }
 
-    /* ── Responsive básico ── */
     @media (max-width: 768px) {
       .sidebar { display: none; }
       .main { margin-left: 0; }
@@ -249,16 +246,15 @@
 {% if session.get('admin_logged') %}
 <div class="layout">
 
-  <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-brand">
-      <div class="logo">🦙 E-BOT PRO</div>
+      <div class="logo">🦙 {{ config.NOMBRE_CLINICA }}</div>
       <div class="sub">Panel administrativo</div>
     </div>
     <div class="sidebar-nav">
       <a href="{{ url_for('web.dashboard') }}"
          class="nav-link {% if request.endpoint == 'web.dashboard' %}active{% endif %}">
-        <span class="icon">📊</span> Dashboard
+        <span class="icon">📊</span> Escritorio
       </a>
       <a href="{{ url_for('web.agenda') }}"
          class="nav-link {% if request.endpoint == 'web.agenda' %}active{% endif %}">
@@ -268,13 +264,13 @@
          class="nav-link {% if request.endpoint == 'web.mensajes' %}active{% endif %}">
         <span class="icon">💬</span> Mensajes
       </a>
-      <a href="{{ url_for('web.profesionales') }}"
-         class="nav-link {% if request.endpoint == 'web.profesionales' %}active{% endif %}">
-        <span class="icon">👥</span> Profesionales
-      </a>
       <a href="{{ url_for('web.reportes') }}"
          class="nav-link {% if request.endpoint == 'web.reportes' %}active{% endif %}">
         <span class="icon">📈</span> Reportes
+      </a>
+      <a href="{{ url_for('web.profesionales') }}"
+         class="nav-link {% if request.endpoint == 'web.profesionales' %}active{% endif %}">
+        <span class="icon">👥</span> Profesionales
       </a>
     </div>
     <div class="sidebar-footer">
@@ -286,7 +282,6 @@
     </div>
   </nav>
 
-  <!-- Main -->
   <div class="main">
     <div class="topbar">
       <h1>{% block page_title %}Panel admin{% endblock %}</h1>
@@ -311,3 +306,4 @@
 
 </body>
 </html>
+
