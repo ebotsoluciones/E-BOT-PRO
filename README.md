@@ -377,5 +377,33 @@ ngrok http 5000
 - [ ] Gestión de profesionales desde el panel web
 
 ---
+---
 
+## Migraciones SQL
+
+Esta sección documenta los cambios de schema que requieren SQL manual cuando se migra una base de datos existente (no aplica a instalaciones nuevas).
+
+### v1.0 → v1.1 — Separación de nombre en professionals
+
+En la versión inicial la tabla `professionals` tenía una sola columna `name`. En v1.1 se separó en `last_name` y `first_name`.
+
+**Solo ejecutar si la DB ya existe con la estructura vieja:**
+
+```sql
+-- 1. Agregar columnas nuevas
+ALTER TABLE professionals 
+ADD COLUMN last_name  VARCHAR(100),
+ADD COLUMN first_name VARCHAR(100);
+
+-- 2. Migrar datos existentes
+UPDATE professionals SET last_name = name, first_name = '';
+
+-- 3. Aplicar restricciones y liberar columna vieja
+ALTER TABLE professionals 
+ALTER COLUMN last_name  SET NOT NULL,
+ALTER COLUMN first_name SET NOT NULL,
+ALTER COLUMN name DROP NOT NULL;
+```
+
+**Instalaciones nuevas** — no requieren este paso.
 *E-BOT PRO — ebotsoluciones 🦙*
