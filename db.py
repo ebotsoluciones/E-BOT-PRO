@@ -33,7 +33,6 @@ def init_db():
     """Crea todas las tablas si no existen. Seguro para correr en cada startup."""
     with get_cursor() as cur:
 
-        # ── KV store (conversation_state y misc) ──────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS kv_store (
                 key  TEXT PRIMARY KEY,
@@ -41,11 +40,11 @@ def init_db():
             )
         """)
 
-        # ── Profesionales ─────────────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS professionals (
                 id          SERIAL PRIMARY KEY,
-                name        VARCHAR(100) NOT NULL,
+                last_name   VARCHAR(100) NOT NULL,
+                first_name  VARCHAR(100) NOT NULL,
                 specialty   VARCHAR(100),
                 phone       VARCHAR(30),
                 active      BOOLEAN DEFAULT TRUE,
@@ -53,8 +52,6 @@ def init_db():
             )
         """)
 
-        # ── Admins ────────────────────────────────────────────────────────────
-        # role: 'general' = ve todo | 'professional' = solo su agenda
         cur.execute("""
             CREATE TABLE IF NOT EXISTS admins (
                 id              SERIAL PRIMARY KEY,
@@ -67,7 +64,6 @@ def init_db():
             )
         """)
 
-        # ── Pacientes ─────────────────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS patients (
                 id          SERIAL PRIMARY KEY,
@@ -81,8 +77,6 @@ def init_db():
             )
         """)
 
-        # ── Configuración de agenda por profesional ───────────────────────────
-        # day_of_week: 0=lunes ... 6=domingo
         cur.execute("""
             CREATE TABLE IF NOT EXISTS schedule_config (
                 id              SERIAL PRIMARY KEY,
@@ -95,8 +89,6 @@ def init_db():
             )
         """)
 
-        # ── Turnos ────────────────────────────────────────────────────────────
-        # status: 'active' | 'cancelled' | 'completed'
         cur.execute("""
             CREATE TABLE IF NOT EXISTS appointments (
                 id              SERIAL PRIMARY KEY,
@@ -115,7 +107,6 @@ def init_db():
             )
         """)
 
-        # ── Bloqueos de agenda ────────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS blocked_slots (
                 id              SERIAL PRIMARY KEY,
@@ -129,9 +120,6 @@ def init_db():
             )
         """)
 
-        # ── Mensajes ──────────────────────────────────────────────────────────
-        # direction: 'in' (paciente→bot) | 'out' (bot→paciente)
-        # status: 'pending' | 'read'
         cur.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id              SERIAL PRIMARY KEY,
@@ -145,9 +133,6 @@ def init_db():
             )
         """)
 
-        # ── Notificaciones ────────────────────────────────────────────────────
-        # type: 'confirmed' | 'cancelled' | 'reminder'
-        # status: 'sent' | 'failed' | 'pending'
         cur.execute("""
             CREATE TABLE IF NOT EXISTS notifications (
                 id              SERIAL PRIMARY KEY,
@@ -165,15 +150,36 @@ def init_db():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def prof_display_name(prof: dict) -> str:
+    """Apellido, Nombre — Especialidad"""
+    nombre = f"{prof['last_name']}, {prof['first_name']}"
+    if prof.get('specialty'):
+        nombre += f" — {prof['specialty']}"
+    return nombre
+
+def prof_short_name(prof: dict) -> str:
+    """Apellido, Nombre"""
+    return f"{prof['last_name']}, {prof['first_name']}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # PROFESSIONALS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def get_professionals(active_only=True) -> list:
     with get_cursor() as cur:
         if active_only:
-            cur.execute("SELECT * FROM professionals WHERE active = TRUE ORDER BY name")
+            cur.execute("""
+                SELECT * FROM professionals
+                WHERE active = TRUE ORDER BY last_name, first_name
+            """)
         else:
-            cur.execute("SELECT * FROM professionals ORDER BY name")
+            cur.execute("""
+                SELECT * FROM professionals ORDER BY last_name, first_name
+            """)
         return cur.fetchall()
 
 def get_professional_by_id(prof_id: int) -> dict:
@@ -183,16 +189,39 @@ def get_professional_by_id(prof_id: int) -> dict:
 
 def get_professional_by_phone(phone: str) -> dict:
     with get_cursor() as cur:
-        cur.execute("SELECT p.* FROM professionals p JOIN admins a ON a.professional_id = p.id WHERE a.phone = %s AND a.active = TRUE", (phone,))
+        cur.execute("""
+            SELECT p.* FROM professionals p
+            JOIN admins a ON a.professional_id = p.id
+            WHERE a.phone = %s AND a.active = TRUE
+        """, (phone,))
         return cur.fetchone()
 
-def create_professional(name: str, specialty: str = None, phone: str = None) -> dict:
+def create_professional(last_name: str, first_name: str,
+                        specialty: str = None, phone: str = None) -> dict:
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO professionals (name, specialty, phone)
-            VALUES (%s, %s, %s) RETURNING *
-        """, (name, specialty, phone))
+            INSERT INTO professionals (last_name, first_name, specialty, phone)
+            VALUES (%s, %s, %s, %s) RETURNING *
+        """, (last_name.strip().title(), first_name.strip().title(), specialty, phone))
         return cur.fetchone()
+
+def update_professional(prof_id: int, last_name: str, first_name: str,
+                        specialty: str = None, phone: str = None, active: bool = True):
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE professionals
+            SET last_name = %s, first_name = %s,
+                specialty = %s, phone = %s, active = %s
+            WHERE id = %s
+        """, (last_name.strip().title(), first_name.strip().title(),
+              specialty, phone, active, prof_id))
+
+def deactivate_professional(prof_id: int):
+    """Baja lógica — no elimina, marca como inactivo."""
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE professionals SET active = FALSE WHERE id = %s
+        """, (prof_id,))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -201,7 +230,28 @@ def create_professional(name: str, specialty: str = None, phone: str = None) -> 
 
 def get_admin_by_phone(phone: str) -> dict:
     with get_cursor() as cur:
-        cur.execute("SELECT * FROM admins WHERE phone = %s AND active = TRUE", (phone,))
+        cur.execute("""
+            SELECT * FROM admins WHERE phone = %s AND active = TRUE
+        """, (phone,))
+        return cur.fetchone()
+
+def get_all_admins() -> list:
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT a.*, p.last_name, p.first_name
+            FROM admins a
+            LEFT JOIN professionals p ON p.id = a.professional_id
+            ORDER BY a.role, a.name
+        """)
+        return cur.fetchall()
+
+def create_admin(phone: str, name: str, role: str = 'professional',
+                 professional_id: int = None) -> dict:
+    with get_cursor() as cur:
+        cur.execute("""
+            INSERT INTO admins (phone, name, role, professional_id)
+            VALUES (%s, %s, %s, %s) RETURNING *
+        """, (phone, name, role, professional_id))
         return cur.fetchone()
 
 def is_admin(phone: str) -> bool:
@@ -217,10 +267,10 @@ def is_general_admin(phone: str) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def get_patient_by_phone(phone: str) -> dict:
-    """Retorna el último paciente asociado a ese teléfono."""
     with get_cursor() as cur:
         cur.execute("""
-            SELECT * FROM patients WHERE phone = %s ORDER BY created_at DESC LIMIT 1
+            SELECT * FROM patients
+            WHERE phone = %s ORDER BY created_at DESC LIMIT 1
         """, (phone,))
         return cur.fetchone()
 
@@ -234,7 +284,13 @@ def get_patient_by_id(patient_id: int) -> dict:
         cur.execute("SELECT * FROM patients WHERE id = %s", (patient_id,))
         return cur.fetchone()
 
-def create_patient(phone: str, name: str, dni: str, obra_social: str = None, plan: str = None) -> dict:
+def get_all_patients() -> list:
+    with get_cursor() as cur:
+        cur.execute("SELECT * FROM patients ORDER BY name")
+        return cur.fetchall()
+
+def create_patient(phone: str, name: str, dni: str,
+                   obra_social: str = None, plan: str = None) -> dict:
     with get_cursor() as cur:
         cur.execute("""
             INSERT INTO patients (phone, name, dni, obra_social, plan)
@@ -243,9 +299,10 @@ def create_patient(phone: str, name: str, dni: str, obra_social: str = None, pla
         return cur.fetchone()
 
 def update_patient_phone(patient_id: int, phone: str):
-    """Actualiza teléfono cuando el paciente se identifica por DNI desde otro número."""
     with get_cursor() as cur:
-        cur.execute("UPDATE patients SET phone = %s WHERE id = %s", (phone, patient_id))
+        cur.execute("""
+            UPDATE patients SET phone = %s WHERE id = %s
+        """, (phone, patient_id))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -255,27 +312,37 @@ def update_patient_phone(patient_id: int, phone: str):
 def get_schedule(prof_id: int) -> list:
     with get_cursor() as cur:
         cur.execute("""
-            SELECT * FROM schedule_config WHERE professional_id = %s ORDER BY day_of_week
+            SELECT * FROM schedule_config
+            WHERE professional_id = %s ORDER BY day_of_week
         """, (prof_id,))
         return cur.fetchall()
 
 def get_schedule_for_day(prof_id: int, day_of_week: int) -> dict:
     with get_cursor() as cur:
         cur.execute("""
-            SELECT * FROM schedule_config WHERE professional_id = %s AND day_of_week = %s
+            SELECT * FROM schedule_config
+            WHERE professional_id = %s AND day_of_week = %s
         """, (prof_id, day_of_week))
         return cur.fetchone()
 
-def upsert_schedule(prof_id: int, day_of_week: int, start_time: str, end_time: str, slot_minutes: int = 30):
+def upsert_schedule(prof_id: int, day_of_week: int, start_time: str,
+                    end_time: str, slot_minutes: int = 30):
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO schedule_config (professional_id, day_of_week, start_time, end_time, slot_minutes)
+            INSERT INTO schedule_config
+                (professional_id, day_of_week, start_time, end_time, slot_minutes)
             VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (professional_id, day_of_week)
-            DO UPDATE SET start_time = EXCLUDED.start_time,
-                          end_time   = EXCLUDED.end_time,
+            DO UPDATE SET start_time   = EXCLUDED.start_time,
+                          end_time     = EXCLUDED.end_time,
                           slot_minutes = EXCLUDED.slot_minutes
         """, (prof_id, day_of_week, start_time, end_time, slot_minutes))
+
+def delete_schedule(prof_id: int):
+    with get_cursor() as cur:
+        cur.execute("""
+            DELETE FROM schedule_config WHERE professional_id = %s
+        """, (prof_id,))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -300,7 +367,8 @@ def get_upcoming_appointments(prof_id: int) -> list:
             SELECT a.*, p.name as patient_name, p.phone as patient_phone
             FROM appointments a
             JOIN patients p ON p.id = a.patient_id
-            WHERE a.professional_id = %s AND a.date >= CURRENT_DATE AND a.status = 'active'
+            WHERE a.professional_id = %s
+              AND a.date >= CURRENT_DATE AND a.status = 'active'
             ORDER BY a.date, a.time
         """, (prof_id,))
         return cur.fetchall()
@@ -308,10 +376,14 @@ def get_upcoming_appointments(prof_id: int) -> list:
 def get_patient_appointments(patient_id: int) -> list:
     with get_cursor() as cur:
         cur.execute("""
-            SELECT a.*, pr.name as professional_name, pr.specialty
+            SELECT a.*,
+                   pr.last_name  as prof_last_name,
+                   pr.first_name as prof_first_name,
+                   pr.specialty
             FROM appointments a
             JOIN professionals pr ON pr.id = a.professional_id
-            WHERE a.patient_id = %s AND a.date >= CURRENT_DATE AND a.status = 'active'
+            WHERE a.patient_id = %s
+              AND a.date >= CURRENT_DATE AND a.status = 'active'
             ORDER BY a.date, a.time
         """, (patient_id,))
         return cur.fetchall()
@@ -320,7 +392,8 @@ def is_slot_taken(prof_id: int, date: str, time: str) -> bool:
     with get_cursor() as cur:
         cur.execute("""
             SELECT 1 FROM appointments
-            WHERE professional_id = %s AND date = %s AND time = %s AND status = 'active'
+            WHERE professional_id = %s AND date = %s
+              AND time = %s AND status = 'active'
         """, (prof_id, date, time))
         return cur.fetchone() is not None
 
@@ -328,12 +401,14 @@ def create_appointment(prof_id: int, patient_id: int, date: str, time: str,
                        created_by: str = "patient", notes: str = None) -> dict:
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO appointments (professional_id, patient_id, date, time, created_by, notes)
+            INSERT INTO appointments
+                (professional_id, patient_id, date, time, created_by, notes)
             VALUES (%s, %s, %s, %s, %s, %s) RETURNING *
         """, (prof_id, patient_id, date, time, created_by, notes))
         return cur.fetchone()
 
-def cancel_appointment(appointment_id: int, cancelled_by: str = "patient", reason: str = None):
+def cancel_appointment(appointment_id: int, cancelled_by: str = "patient",
+                       reason: str = None):
     with get_cursor() as cur:
         cur.execute("""
             UPDATE appointments
@@ -341,21 +416,13 @@ def cancel_appointment(appointment_id: int, cancelled_by: str = "patient", reaso
             WHERE id = %s
         """, (cancelled_by, reason, appointment_id))
 
-def get_appointment_by_id(appointment_id: int) -> dict:
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT a.*, p.name as patient_name, p.phone as patient_phone
-            FROM appointments a JOIN patients p ON p.id = a.patient_id
-            WHERE a.id = %s
-        """, (appointment_id,))
-        return cur.fetchone()
-
 def get_appointment_by_slot(prof_id: int, date: str, time: str) -> dict:
     with get_cursor() as cur:
         cur.execute("""
             SELECT a.*, p.name as patient_name, p.phone as patient_phone
             FROM appointments a JOIN patients p ON p.id = a.patient_id
-            WHERE a.professional_id = %s AND a.date = %s AND a.time = %s AND a.status = 'active'
+            WHERE a.professional_id = %s AND a.date = %s
+              AND a.time = %s AND a.status = 'active'
         """, (prof_id, date, time))
         return cur.fetchone()
 
@@ -377,7 +444,8 @@ def block_slot(prof_id: int, date: str, time_from: str, time_to: str,
                reason: str = None, created_by: str = None):
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO blocked_slots (professional_id, date, time_from, time_to, reason, created_by)
+            INSERT INTO blocked_slots
+                (professional_id, date, time_from, time_to, reason, created_by)
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (prof_id, date, time_from, time_to, reason, created_by))
 
@@ -409,13 +477,15 @@ def get_pending_messages(prof_id: int = None) -> list:
             cur.execute("""
                 SELECT m.*, p.name as patient_name, p.phone as patient_phone
                 FROM messages m JOIN patients p ON p.id = m.patient_id
-                WHERE m.professional_id = %s AND m.status = 'pending' AND m.direction = 'in'
+                WHERE m.professional_id = %s
+                  AND m.status = 'pending' AND m.direction = 'in'
                 ORDER BY m.created_at DESC
             """, (prof_id,))
         else:
             cur.execute("""
                 SELECT m.*, p.name as patient_name, p.phone as patient_phone,
-                       pr.name as professional_name
+                       pr.last_name as prof_last_name,
+                       pr.first_name as prof_first_name
                 FROM messages m
                 JOIN patients p ON p.id = m.patient_id
                 LEFT JOIN professionals pr ON pr.id = m.professional_id
@@ -423,12 +493,6 @@ def get_pending_messages(prof_id: int = None) -> list:
                 ORDER BY m.created_at DESC
             """)
         return cur.fetchall()
-
-def mark_message_read(message_id: int):
-    with get_cursor() as cur:
-        cur.execute("""
-            UPDATE messages SET status = 'read', read_at = NOW() WHERE id = %s
-        """, (message_id,))
 
 def mark_all_read(prof_id: int = None):
     with get_cursor() as cur:
@@ -439,7 +503,8 @@ def mark_all_read(prof_id: int = None):
             """, (prof_id,))
         else:
             cur.execute("""
-                UPDATE messages SET status = 'read', read_at = NOW() WHERE status = 'pending'
+                UPDATE messages SET status = 'read', read_at = NOW()
+                WHERE status = 'pending'
             """)
 
 
@@ -451,8 +516,10 @@ def log_notification(appointment_id: int, recipient_phone: str,
                      notif_type: str, status: str = "sent", error: str = None):
     with get_cursor() as cur:
         cur.execute("""
-            INSERT INTO notifications (appointment_id, recipient_phone, type, status, sent_at, error_msg)
-            VALUES (%s, %s, %s, %s, CASE WHEN %s = 'sent' THEN NOW() ELSE NULL END, %s)
+            INSERT INTO notifications
+                (appointment_id, recipient_phone, type, status, sent_at, error_msg)
+            VALUES (%s, %s, %s, %s,
+                CASE WHEN %s = 'sent' THEN NOW() ELSE NULL END, %s)
         """, (appointment_id, recipient_phone, notif_type, status, status, error))
 
 
@@ -466,7 +533,7 @@ def get_report_by_month(year: int, month: int, prof_id: int = None) -> dict:
             SELECT COUNT(*) as total,
                    COUNT(DISTINCT a.patient_id) as unique_patients
             FROM appointments a
-            WHERE EXTRACT(YEAR FROM a.date) = %s
+            WHERE EXTRACT(YEAR  FROM a.date) = %s
               AND EXTRACT(MONTH FROM a.date) = %s
               AND a.status = 'active'
         """
@@ -477,12 +544,14 @@ def get_report_by_month(year: int, month: int, prof_id: int = None) -> dict:
         summary = cur.fetchone()
 
         detail_q = """
-            SELECT a.date, a.time, p.name as patient_name,
-                   p.obra_social, pr.name as professional_name
+            SELECT a.date, a.time,
+                   p.name as patient_name, p.obra_social,
+                   pr.last_name  as prof_last_name,
+                   pr.first_name as prof_first_name
             FROM appointments a
-            JOIN patients p ON p.id = a.patient_id
+            JOIN patients      p  ON p.id  = a.patient_id
             JOIN professionals pr ON pr.id = a.professional_id
-            WHERE EXTRACT(YEAR FROM a.date) = %s
+            WHERE EXTRACT(YEAR  FROM a.date) = %s
               AND EXTRACT(MONTH FROM a.date) = %s
               AND a.status = 'active'
         """
