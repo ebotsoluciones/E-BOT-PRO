@@ -4,16 +4,15 @@
 
 {% block content %}
 
-<!-- Filtro por profesional -->
 <div class="card" style="margin-bottom:20px;">
   <form method="GET" style="display:flex; gap:12px; align-items:flex-end;">
-    <div class="form-group" style="margin:0; flex:1; max-width:240px;">
+    <div class="form-group" style="margin:0; flex:1; max-width:280px;">
       <label>Filtrar por profesional</label>
       <select name="prof_id" onchange="this.form.submit()">
         <option value="">Todos</option>
         {% for p in profs %}
           <option value="{{ p.id }}" {% if p.id == prof_id %}selected{% endif %}>
-            {{ p.name }}
+            {{ p.last_name }}, {{ p.first_name }}{% if p.specialty %} — {{ p.specialty }}{% endif %}
           </option>
         {% endfor %}
       </select>
@@ -49,8 +48,8 @@
         </div>
         <div style="font-size:11px; color:#6b6a64; margin:2px 0;">
           {{ (m.patient_phone or '').replace('whatsapp:+', '+') }}
-          {% if m.professional_name %}
-            · {{ m.professional_name }}
+          {% if m.prof_last_name %}
+            · {{ m.prof_last_name }}, {{ m.prof_first_name }}
           {% endif %}
         </div>
         <div style="font-size:13px; margin-top:6px; color:#1a1a18;">
