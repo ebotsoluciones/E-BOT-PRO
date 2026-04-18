@@ -1,12 +1,15 @@
+
 """
 app.py — servidor Flask E-BOT PRO 🦙🔥
 "Llama que llama... por wasap"
 """
 
 import os
+from datetime import datetime
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
+import config as _config
 from config      import SECRET_KEY, validate_config
 from db          import init_db
 from handlers    import procesar
@@ -22,11 +25,13 @@ init_db()
 # ── Blueprints ────────────────────────────────────────────────────────────────
 app.register_blueprint(web_bp, url_prefix="/admin")
 
-# ── Fecha actual disponible en todos los templates ────────────────────────────
-from datetime import datetime
+# ── Variables globales para todos los templates ───────────────────────────────
 @app.context_processor
-def inject_now():
-    return {"now": datetime.now().strftime("%d/%m/%Y %H:%M")}
+def inject_globals():
+    return {
+        "now":    datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "config": _config,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
