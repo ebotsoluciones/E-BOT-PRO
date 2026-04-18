@@ -22,23 +22,21 @@
     transition: background 0.15s;
   }
   .slot:hover { background: #e1f5ee; border-color: #1d9e75; color: #085041; }
-  .slot.selected { background: #1d9e75; color: #fff; border-color: #0f6e56; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Filtros -->
 <div class="card" style="margin-bottom:20px;">
   <form method="GET" action="{{ url_for('web.agenda') }}"
         style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
-    <div class="form-group" style="margin:0; flex:1; min-width:140px;">
+    <div class="form-group" style="margin:0; flex:1; min-width:160px;">
       <label>Profesional</label>
       <select name="prof_id" onchange="this.form.submit()">
         <option value="">— Elegir —</option>
         {% for p in profs %}
           <option value="{{ p.id }}" {% if p.id == prof_id %}selected{% endif %}>
-            {{ p.name }}{% if p.specialty %} — {{ p.specialty }}{% endif %}
+            {{ p.last_name }}, {{ p.first_name }}{% if p.specialty %} — {{ p.specialty }}{% endif %}
           </option>
         {% endfor %}
       </select>
@@ -54,11 +52,14 @@
 
 {% if prof_sel %}
 
-<!-- Turnos del día -->
 <div class="grid-2" style="margin-bottom:20px; align-items:start;">
 
   <div class="card">
-    <div class="card-title">Turnos — {{ fecha }}</div>
+    <div class="card-title">
+      {{ prof_sel.last_name }}, {{ prof_sel.first_name }}
+      {% if prof_sel.specialty %} — {{ prof_sel.specialty }}{% endif %}
+      — {{ fecha }}
+    </div>
     {% if turnos %}
       <table>
         <thead>
@@ -95,10 +96,8 @@
     {% endif %}
   </div>
 
-  <!-- Panel: nuevo turno + bloqueo -->
   <div style="display:flex; flex-direction:column; gap:16px;">
 
-    <!-- Nuevo turno -->
     <div class="card">
       <div class="card-title">Nuevo turno</div>
       <form method="POST" action="{{ url_for('web.nuevo_turno') }}">
@@ -107,7 +106,7 @@
         <div class="form-group">
           <label>Horario disponible</label>
           {% if horarios %}
-            <select name="hora" id="hora-select">
+            <select name="hora">
               {% for h in horarios %}
                 <option value="{{ h }}">{{ h }}</option>
               {% endfor %}
@@ -121,9 +120,6 @@
         <div class="form-group">
           <label>ID del paciente</label>
           <input type="number" name="patient_id" placeholder="ID del paciente">
-          <div style="font-size:11px; color:#6b6a64; margin-top:4px;">
-            (búsqueda de paciente por nombre próximamente)
-          </div>
         </div>
         {% if horarios %}
           <button type="submit" class="btn btn-primary">Crear turno</button>
@@ -131,7 +127,6 @@
       </form>
     </div>
 
-    <!-- Bloquear horario -->
     <div class="card">
       <div class="card-title">Bloquear agenda</div>
       <form method="POST" action="{{ url_for('web.nuevo_bloqueo') }}">
