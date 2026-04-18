@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Profesionales{% endblock %}
+{% block page_title %}Profesionales{% endblock %}
+
+{% block content %}
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <span style="font-size:13px; color:#6b6a64;">{{ profs|length }} profesional(es) activo(s)</span>
+  <button class="btn btn-primary" onclick="document.getElementById('modal-nuevo').style.display='flex'">
+    + Nuevo profesional
+  </button>
+</div>
+
+<!-- Listado -->
+{% if profs %}
+<div style="display:flex; flex-direction:column; gap:10px;">
+  {% for p in profs %}
+  <div class="card" style="display:flex; align-items:center; gap:16px;">
+    <div style="width:44px; height:44px; border-radius:50%; background:#e1f5ee;
+                display:flex; align-items:center; justify-content:center;
+                font-weight:600; font-size:15px; color:#085041; flex-shrink:0;">
+      {{ p.last_name[0].upper() }}
+    </div>
+    <div style="flex:1;">
+      <div style="font-weight:500; font-size:14px;">
+        {{ p.last_name }}, {{ p.first_name }}
+      </div>
+      <div style="font-size:12px; color:#6b6a64; margin-top:2px;">
+        {{ p.specialty or 'Sin especialidad' }}
+        {% if p.phone %}· {{ p.phone.replace('whatsapp:+', '+') }}{% endif %}
+      </div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-sm"
+        onclick="abrirEditar({{ p.id }}, '{{ p.last_name }}', '{{ p.first_name }}', '{{ p.specialty or '' }}', '{{ p.phone or '' }}')">
+        Editar
+      </button>
+      <button class="btn btn-sm"
+        onclick="abrirHorarios({{ p.id }}, '{{ p.last_name }}, {{ p.first_name }}')">
+        Horarios
+      </button>
+      <form method="POST" action="{{ url_for('web.desactivar_profesional', prof_id=p.id) }}"
+            onsubmit="return confirm('¿Dar de baja a {{ p.last_name }}, {{ p.first_name }}?')">
+        <button type="submit" class="btn btn-sm btn-danger">Baja</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty">No hay profesionales cargados. Creá el primero.</div>
+</div>
+{% endif %}
+
+
+<!-- ══ MODAL NUEVO PROFESIONAL ══════════════════════════════════════════════ -->
+<div id="modal-nuevo" style="display:none; position:fixed; inset:0;
+     background:rgba(0,0,0,0.4); z-index:100;
+     align-items:center; justify-content:center;">
+  <div class="card" style="width:400px; max-width:90vw;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+      <strong>Nuevo profesional</strong>
+      <button onclick="document.getElementById('modal-nuevo').style.display='none'"
+              style="background:none; border:none; cursor:pointer; font-size:18px;">×</button>
+    </div>
+    <form method="POST" action="{{ url_for('web.crear_profesional') }}">
+      <div class="form-group">
+        <label>Apellido *</label>
+        <input type="text" name="last_name" required placeholder="García">
+      </div>
+      <div class="form-group">
+        <label>Nombre *</label>
+        <input type="text" name="first_name" required placeholder="Juan">
+      </div>
+      <div class="form-group">
+        <label>Especialidad</label>
+        <input type="text" name="specialty" placeholder="Médico de cabecera, Kinesiología...">
+      </div>
+      <div class="form-group">
+        <label>Teléfono WhatsApp</label>
+        <input type="text" name="phone" placeholder="whatsapp:+5491100000000">
+        <div style="font-size:11px; color:#6b6a64; margin-top:4px;">
+          Formato: whatsapp:+549XXXXXXXXXX
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:4px;">
+        <button type="button" class="btn"
+          onclick="document.getElementById('modal-nuevo').style.display='none'">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══ MODAL EDITAR PROFESIONAL ═════════════════════════════════════════════ -->
+<div id="modal-editar" style="display:none; position:fixed; inset:0;
+     background:rgba(0,0,0,0.4); z-index:100;
+     align-items:center; justify-content:center;">
+  <div class="card" style="width:400px; max-width:90vw;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+      <strong>Editar profesional</strong>
+      <button onclick="document.getElementById('modal-editar').style.display='none'"
+              style="background:none; border:none; cursor:pointer; font-size:18px;">×</button>
+    </div>
+    <form method="POST" action="{{ url_for('web.editar_profesional') }}">
+      <input type="hidden" name="prof_id" id="edit-id">
+      <div class="form-group">
+        <label>Apellido *</label>
+        <input type="text" name="last_name" id="edit-last" required>
+      </div>
+      <div class="form-group">
+        <label>Nombre *</label>
+        <input type="text" name="first_name" id="edit-first" required>
+      </div>
+      <div class="form-group">
+        <label>Especialidad</label>
+        <input type="text" name="specialty" id="edit-specialty">
+      </div>
+      <div class="form-group">
+        <label>Teléfono WhatsApp</label>
+        <input type="text" name="phone" id="edit-phone">
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:4px;">
+        <button type="button" class="btn"
+          onclick="document.getElementById('modal-editar').style.display='none'">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══ MODAL HORARIOS ═══════════════════════════════════════════════════════ -->
+<div id="modal-horarios" style="display:none; position:fixed; inset:0;
+     background:rgba(0,0,0,0.4); z-index:100;
+     align-items:center; justify-content:center;">
+  <div class="card" style="width:480px; max-width:90vw;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+      <strong id="horarios-titulo">Horarios</strong>
+      <button onclick="document.getElementById('modal-horarios').style.display='none'"
+              style="background:none; border:none; cursor:pointer; font-size:18px;">×</button>
+    </div>
+    <form method="POST" action="{{ url_for('web.guardar_horarios') }}">
+      <input type="hidden" name="prof_id" id="horarios-prof-id">
+      <table style="margin-bottom:16px;">
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Activo</th>
+            <th>Desde</th>
+            <th>Hasta</th>
+            <th>Slot (min)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set dias = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'] %}
+          {% for i, dia in enumerate(dias) %}
+          <tr>
+            <td style="font-size:13px;">{{ dia }}</td>
+            <td style="text-align:center;">
+              <input type="checkbox" name="active_{{ i }}" value="1">
+            </td>
+            <td>
+              <input type="time" name="start_{{ i }}" value="09:00"
+                     style="width:90px; padding:4px 6px;">
+            </td>
+            <td>
+              <input type="time" name="end_{{ i }}" value="18:00"
+                     style="width:90px; padding:4px 6px;">
+            </td>
+            <td>
+              <select name="slot_{{ i }}" style="width:70px; padding:4px 6px;">
+                <option value="15">15</option>
+                <option value="20">20</option>
+                <option value="30" selected>30</option>
+                <option value="45">45</option>
+                <option value="60">60</option>
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="font-size:11px; color:#6b6a64; margin-bottom:12px;">
+        Solo se guardan los días marcados como activos.
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn"
+          onclick="document.getElementById('modal-horarios').style.display='none'">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary">Guardar horarios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<script>
+function abrirEditar(id, last, first, specialty, phone) {
+  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-last').value = last;
+  document.getElementById('edit-first').value = first;
+  document.getElementById('edit-specialty').value = specialty;
+  document.getElementById('edit-phone').value = phone;
+  document.getElementById('modal-editar').style.display = 'flex';
+}
+
+function abrirHorarios(id, nombre) {
+  document.getElementById('horarios-prof-id').value = id;
+  document.getElementById('horarios-titulo').textContent = 'Horarios — ' + nombre;
+  document.getElementById('modal-horarios').style.display = 'flex';
+}
+</script>
+
+{% endblock %}
