@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block title %}Escritorio{% endblock %}
+{% block page_title %}Escritorio{% endblock %}
 
 {% block content %}
 
-<!-- Stats globales -->
 <div class="stat-grid">
   <div class="stat-card">
     <div class="label">Turnos este mes</div>
@@ -26,16 +25,17 @@
   </div>
 </div>
 
-<!-- Turnos de hoy por profesional -->
 <h2 style="font-size:14px; font-weight:500; margin-bottom:14px;">
   Turnos de hoy — {{ hoy }}
 </h2>
 
 {% if turnos_hoy %}
-  <div class="grid-{% if turnos_hoy|length > 2 %}3{% else %}2{% endif %}" style="margin-bottom:24px;">
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-bottom:24px;">
     {% for item in turnos_hoy %}
     <div class="card">
-      <div class="card-title">{{ item.profesional.name }}</div>
+      <div class="card-title">
+        {{ item.profesional.last_name }}, {{ item.profesional.first_name }}
+      </div>
       {% if item.profesional.specialty %}
         <div style="font-size:11px; color:#6b6a64; margin-top:-8px; margin-bottom:10px;">
           {{ item.profesional.specialty }}
