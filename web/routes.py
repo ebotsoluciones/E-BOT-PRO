@@ -23,7 +23,7 @@ from flask import (
 from db import (
     get_professionals, get_professional_by_id,
     get_appointments_by_date, get_upcoming_appointments,
-    get_pending_messages, mark_all_read,
+    get_pending_messages, mark_message_read, mark_all_read,
     get_report_by_month, get_patient_by_id,
 )
 from services import (
@@ -32,8 +32,8 @@ from services import (
     bloquear_horario, bloquear_dia_completo,
     texto_reporte,
 )
-web_bp = Blueprint("web", __name__)
-# web_bp = Blueprint("web", __name__, template_folder="templates")
+
+web_bp = Blueprint("web", __name__, template_folder="templates")
 
 # ── Clave de acceso simple (en producción usar DB de admins) ──────────────────
 ADMIN_PASSWORD = "ebot2025"  # TODO: mover a variable de entorno WEB_PASSWORD
@@ -357,3 +357,66 @@ def guardar_horarios():
 
     flash("✅ Horarios guardados correctamente.")
     return redirect(url_for("web.profesionales"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API — PACIENTES (búsqueda y alta rápida desde agenda)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/api/paciente")
+@login_required
+def api_buscar_paciente():
+    from db import get_patient_by_dni, get_all_patients
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"found": False})
+
+    # Buscar por DNI
+    if q.isdigit():
+        p = get_patient_by_dni(q)
+        if p:
+            return jsonify({
+                "found": True, "id": p["id"], "name": p["name"],
+                "dni": p["dni"], "obra_social": p.get("obra_social")
+            })
+    else:
+        # Buscar por apellido/nombre (búsqueda parcial)
+        todos = get_all_patients()
+        q_lower = q.lower()
+        coincidencias = [p for p in todos if q_lower in p["name"].lower()]
+        if coincidencias:
+            p = coincidencias[0]
+            return jsonify({
+                "found": True, "id": p["id"], "name": p["name"],
+                "dni": p["dni"], "obra_social": p.get("obra_social")
+            })
+
+    return jsonify({"found": False})
+
+
+@web_bp.route("/api/paciente/alta", methods=["POST"])
+@login_required
+def api_alta_paciente():
+    from db import create_patient, get_patient_by_dni
+    import json as _json
+    data = request.get_json()
+    nombre     = (data.get("nombre") or "").strip()
+    dni        = (data.get("dni")    or "").strip().replace(".", "")
+    obra_social = data.get("obra_social")
+
+    if not nombre or not dni:
+        return jsonify({"ok": False, "error": "Nombre y DNI son obligatorios."})
+
+    # Verificar que no exista
+    existente = get_patient_by_dni(dni)
+    if existente:
+        return jsonify({
+            "ok": True, "id": existente["id"],
+            "name": existente["name"], "dni": existente["dni"]
+        })
+
+    try:
+        p = create_patient("", nombre, dni, obra_social)
+        return jsonify({"ok": True, "id": p["id"], "name": p["name"], "dni": p["dni"]})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
