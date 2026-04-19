@@ -48,9 +48,12 @@ def texto_lista_profesionales() -> str:
     profs = listar_profesionales()
     if not profs:
         return "No hay profesionales disponibles en este momento."
-    lineas = [f"{i+1} {p['name']}" + (f" — {p['specialty']}" if p['specialty'] else "")
+    lineas = [f"{i+1} {p['last_name']}, {p['first_name']}" + (f" — {p['specialty']}" if p.get('specialty') else "")
               for i, p in enumerate(profs)]
     return "\n".join(lineas)
+              
+
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
