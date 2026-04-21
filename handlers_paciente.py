@@ -52,6 +52,7 @@ def menu_paciente() -> str:
 def bienvenida() -> str:
     return (
         f"👋 ¡Bienvenido/a a *{NOMBRE_CLINICA}*!\n\n"
+        f"{LINK_MAPS}\n\n"
         f"Estamos aquí para ayudarle a gestionar sus turnos de forma sencilla.\n\n"
         f"Por favor, indicanos qué necesitás:\n\n"
         f"1 Sacar turno\n"
@@ -72,13 +73,11 @@ def manejar_paciente(numero: str, body: str, msg):
     texto  = body.strip()
     estado = get_user_state(numero, "estado", "MENU")
 
-    # ── Reset global ──────────────────────────────────────────────────────────
     if texto.lower() in ["menu", "/start", "inicio"]:
         clear_user(numero)
         msg.body(menu_paciente())
         return
 
-    # ── Router por estado ─────────────────────────────────────────────────────
     handlers = {
         "MENU":               _manejar_menu,
         "CONFIRMAR_PERFIL":   _confirmar_perfil,
@@ -106,7 +105,6 @@ def manejar_paciente(numero: str, body: str, msg):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _manejar_menu(numero: str, texto: str, msg):
-    # Primera vez — mostrar bienvenida
     es_nuevo = get_user_state(numero, "bienvenida_enviada", False)
     if not es_nuevo and texto.lower() not in ["1","2","3","4","5","6","7"]:
         set_user_state(numero, "bienvenida_enviada", True)
@@ -265,9 +263,9 @@ def _elegir_profesional(numero: str, texto: str, msg):
         return
 
     set_user_states(numero, {
-        "prof_id":    prof["id"],
+        "prof_id":     prof["id"],
         "prof_nombre": f"{prof['last_name']}, {prof['first_name']}",
-        "estado":     "TURNO_FECHA",
+        "estado":      "TURNO_FECHA",
     })
     especialidad = f" — {prof['specialty']}" if prof.get("specialty") else ""
     msg.body(
