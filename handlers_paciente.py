@@ -40,13 +40,13 @@ from services import (
 def menu_paciente() -> str:
     return (
         f"🏥 *{NOMBRE_CLINICA}*\n\n"
-        f"1 Sacar turno\n"
-        f"2 Mis turnos\n"
-        f"3 Cancelar turno\n"
-        f"4 Mensaje\n"
-        f"5 Profesionales\n"
-        f"6 Información\n"
-        f"7 Salir"
+        f"1️⃣ Sacar turno\n"
+        f"2️⃣ Mis turnos\n"
+        f"3️⃣ Cancelar turno\n"
+        f"4️⃣ Mensaje\n"
+        f"5️⃣ Profesionales\n"
+        f"6️⃣ Información\n"
+        f"7️⃣ Salir"
     )
 
 def bienvenida() -> str:
@@ -55,13 +55,13 @@ def bienvenida() -> str:
         f"{LINK_MAPS}\n\n"
         f"Estamos aquí para ayudarle a gestionar sus turnos de forma sencilla.\n\n"
         f"Por favor, indicanos qué necesitás:\n\n"
-        f"1 Sacar turno\n"
-        f"2 Mis turnos\n"
-        f"3 Cancelar turno\n"
-        f"4 Mensaje\n"
-        f"5 Profesionales\n"
-        f"6 Información\n"
-        f"7 Salir"
+        f"1️⃣ Sacar turno\n"
+        f"2️⃣ Mis turnos\n"
+        f"3️⃣ Cancelar turno\n"
+        f"4️⃣ Mensaje\n"
+        f"5️⃣ Profesionales\n"
+        f"6️⃣ Información\n"
+        f"7️⃣ Salir"
     )
 
 
@@ -75,7 +75,7 @@ def manejar_paciente(numero: str, body: str, msg):
 
     if texto.lower() in ["menu", "/start", "inicio"]:
         clear_user(numero)
-        msg.body(menu_paciente())
+        msg.body(bienvenida())
         return
 
     handlers = {
@@ -97,7 +97,7 @@ def manejar_paciente(numero: str, body: str, msg):
         handler(numero, texto, msg)
     else:
         clear_user(numero)
-        msg.body(menu_paciente())
+        msg.body(bienvenida())
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
