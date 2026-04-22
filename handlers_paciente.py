@@ -40,6 +40,7 @@ from services import (
 def menu_paciente() -> str:
     return (
         f"🏥 *{NOMBRE_CLINICA}*\n\n"
+        f"{LINK_MAPS}\n\n"
         f"1️⃣ Sacar turno\n"
         f"2️⃣ Mis turnos\n"
         f"3️⃣ Cancelar turno\n"
@@ -48,6 +49,7 @@ def menu_paciente() -> str:
         f"6️⃣ Información\n"
         f"7️⃣ Salir"
     )
+
 
 def bienvenida() -> str:
     return (
