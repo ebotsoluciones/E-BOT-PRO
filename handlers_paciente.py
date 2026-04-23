@@ -40,7 +40,6 @@ from services import (
 def menu_paciente() -> str:
     return (
         f"🏥 *{NOMBRE_CLINICA}*\n\n"
-        f"{LINK_MAPS}\n\n"
         f"1️⃣ Sacar turno\n"
         f"2️⃣ Mis turnos\n"
         f"3️⃣ Cancelar turno\n"
@@ -49,7 +48,6 @@ def menu_paciente() -> str:
         f"6️⃣ Información\n"
         f"7️⃣ Salir"
     )
-
 
 def bienvenida() -> str:
     return (
@@ -277,14 +275,28 @@ def _elegir_profesional(numero: str, texto: str, msg):
 
 
 def _turno_fecha(numero: str, texto: str, msg):
+    from datetime import timedelta
+    from config import SEMANAS_AGENDA
+
     try:
         fecha = datetime.strptime(texto.strip(), "%d/%m/%Y").date()
     except ValueError:
         msg.body("❌ Formato inválido. Usá dd/mm/yyyy (ej: 25/05/2025):")
         return
 
-    if fecha < datetime.now().date():
+    hoy    = datetime.now().date()
+    limite = hoy + timedelta(weeks=SEMANAS_AGENDA)
+
+    if fecha < hoy:
         msg.body("❌ Esa fecha ya pasó. Ingresá una fecha futura:")
+        return
+
+    if fecha > limite:
+        msg.body(
+            f"❌ Solo podemos tomar turnos hasta el {limite.strftime('%d/%m/%Y')}.
+"
+            f"Ingresá una fecha dentro de ese plazo:"
+        )
         return
 
     fecha_str = fecha.strftime("%d/%m/%Y")
