@@ -1,5 +1,5 @@
 """
-web/routes.py — rutas del panel web E-BOT PRO 🦙🔥
+web/routes.py — rutas del panel web E-BOT PRO 🦙 🔥
 
 Rutas:
   GET  /admin/              → login
