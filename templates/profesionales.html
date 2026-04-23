@@ -38,6 +38,10 @@
         onclick="abrirHorarios({{ p.id }}, '{{ p.last_name }}, {{ p.first_name }}')">
         Horarios
       </button>
+      <button class="btn btn-sm"
+        onclick="abrirWhatsapp({{ p.id }}, '{{ p.last_name }}, {{ p.first_name }}')">
+        📱 WhatsApp
+      </button>
       <form method="POST" action="{{ url_for('web.desactivar_profesional', prof_id=p.id) }}"
             onsubmit="return confirm('¿Dar de baja a {{ p.last_name }}, {{ p.first_name }}?')">
         <button type="submit" class="btn btn-sm btn-danger">Baja</button>
@@ -132,6 +136,39 @@
   </div>
 </div>
 
+<!-- ══ MODAL WHATSAPP ═══════════════════════════════════════════════════════ -->
+<div id="modal-whatsapp" style="display:none; position:fixed; inset:0;
+     background:rgba(0,0,0,0.4); z-index:100;
+     align-items:center; justify-content:center;">
+  <div class="card" style="width:400px; max-width:90vw;">
+    <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+      <strong id="wa-titulo">Vincular WhatsApp</strong>
+      <button onclick="document.getElementById('modal-whatsapp').style.display='none'"
+              style="background:none; border:none; cursor:pointer; font-size:18px;">×</button>
+    </div>
+    <form method="POST" action="" id="form-whatsapp">
+      <input type="hidden" name="prof_id" id="wa-prof-id">
+      <div class="form-group">
+        <label>Número WhatsApp del profesional</label>
+        <input type="text" name="phone" placeholder="+5491100000000">
+        <div style="font-size:11px; color:#6b6a64; margin-top:4px;">
+          Ingresá el número con código de país. Ej: +5493514000000
+        </div>
+      </div>
+      <div style="font-size:12px; color:#6b6a64; margin-bottom:12px;">
+        El profesional podrá acceder al menú admin desde su WhatsApp.
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn"
+          onclick="document.getElementById('modal-whatsapp').style.display='none'">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary">Vincular</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ══ MODAL HORARIOS ═══════════════════════════════════════════════════════ -->
 <div id="modal-horarios" style="display:none; position:fixed; inset:0;
      background:rgba(0,0,0,0.4); z-index:100;
@@ -211,6 +248,13 @@ function abrirHorarios(id, nombre) {
   document.getElementById('horarios-prof-id').value = id;
   document.getElementById('horarios-titulo').textContent = 'Horarios — ' + nombre;
   document.getElementById('modal-horarios').style.display = 'flex';
+}
+
+function abrirWhatsapp(id, nombre) {
+  document.getElementById('wa-prof-id').value = id;
+  document.getElementById('form-whatsapp').action = '/admin/profesionales/' + id + '/whatsapp';
+  document.getElementById('wa-titulo').textContent = 'WhatsApp — ' + nombre;
+  document.getElementById('modal-whatsapp').style.display = 'flex';
 }
 </script>
 
