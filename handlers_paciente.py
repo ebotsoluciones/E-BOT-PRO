@@ -292,12 +292,19 @@ def _turno_fecha(numero: str, texto: str, msg):
         return
 
     if fecha > limite:
+        limite_str = limite.strftime("%d/%m/%Y")
         msg.body(
-            f"❌ Solo podemos tomar turnos hasta el {limite.strftime('%d/%m/%Y')}.
-"
+            f"❌ Solo podemos tomar turnos hasta el {limite_str}.\n"
             f"Ingresá una fecha dentro de ese plazo:"
         )
         return
+
+        
+            
+
+            
+        
+        
 
     fecha_str = fecha.strftime("%d/%m/%Y")
     prof_id   = get_user_state(numero, "prof_id")
