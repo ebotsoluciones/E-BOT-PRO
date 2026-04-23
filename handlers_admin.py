@@ -10,6 +10,7 @@ Estados admin:
   ADMIN_ELEGIR_PROF       → admin general elige qué profesional ver
   ADMIN_NUEVO_NOMBRE      → nombre del paciente (turno manual)
   ADMIN_NUEVO_DNI         → DNI del paciente
+  ADMIN_NUEVO_OBRA        → obra social (paciente nuevo)
   ADMIN_NUEVO_FECHA       → fecha del turno
   ADMIN_NUEVO_HORA        → hora del turno
   ADMIN_CANCEL_FECHA      → fecha del turno a cancelar
@@ -19,8 +20,8 @@ Estados admin:
 """
 
 from datetime import datetime
-from db       import get_admin_by_phone, get_professional_by_id
-from storage  import get_user_state, set_user_state, set_user_states, clear_user
+from db      import get_admin_by_phone, get_professional_by_id
+from storage import get_user_state, set_user_state, set_user_states, clear_user
 from services import (
     listar_profesionales, texto_lista_profesionales,
     turnos_del_dia, proximos_turnos,
@@ -39,26 +40,26 @@ from services import (
 
 MENU_ADMIN_PROF = """🛠 Panel admin
 
-1 Turnos hoy
-2 Próximos turnos
-3 Mensajes
-4 Nuevo turno
-5 Cancelar turno
-6 Bloquear agenda
-7 Reporte del mes
-8 Salir"""
+1️⃣ Turnos hoy
+2️⃣ Próximos turnos
+3️⃣ Mensajes
+4️⃣ Nuevo turno
+5️⃣ Cancelar turno
+6️⃣ Bloquear agenda
+7️⃣ Reporte del mes
+8️⃣ Salir"""
 
 MENU_ADMIN_GENERAL = """🛠 Admin general
 
-1 Turnos hoy (elegir prof.)
-2 Próximos turnos (elegir prof.)
-3 Mensajes pendientes
-4 Nuevo turno
-5 Cancelar turno
-6 Bloquear agenda
-7 Reporte consolidado
-8 Reporte por profesional
-9 Salir"""
+1️⃣ Turnos hoy (elegir prof.)
+2️⃣ Próximos turnos (elegir prof.)
+3️⃣ Mensajes pendientes
+4️⃣ Nuevo turno
+5️⃣ Cancelar turno
+6️⃣ Bloquear agenda
+7️⃣ Reporte consolidado
+8️⃣ Reporte por profesional
+9️⃣ Salir"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -76,9 +77,8 @@ def manejar_admin(numero: str, body: str, msg):
         return
 
     es_general  = admin["role"] == "general"
-    prof_id_adm = admin.get("professional_id")  # None si es general
+    prof_id_adm = admin.get("professional_id")
 
-    # ── Router por estado ─────────────────────────────────────────────────────
     if estado == "ADMIN":
         _manejar_menu_admin(numero, texto, msg, es_general, prof_id_adm)
         return
@@ -93,6 +93,10 @@ def manejar_admin(numero: str, body: str, msg):
 
     if estado == "ADMIN_NUEVO_DNI":
         _nuevo_turno_dni(numero, texto, msg)
+        return
+
+    if estado == "ADMIN_NUEVO_OBRA":
+        _nuevo_turno_obra(numero, texto, msg)
         return
 
     if estado == "ADMIN_NUEVO_FECHA":
@@ -119,7 +123,8 @@ def manejar_admin(numero: str, body: str, msg):
         _bloquear_hora(numero, texto, msg)
         return
 
-    msg.body(MENU_ADMIN_GENERAL if es_general else MENU_ADMIN_PROF)
+    menu = MENU_ADMIN_GENERAL if es_general else MENU_ADMIN_PROF
+    msg.body(menu)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -138,6 +143,9 @@ def _manejar_menu_admin(numero: str, texto: str, msg, es_general: bool, prof_id_
             _mostrar_proximos(prof_id, msg)
         elif texto == "3":
             _mostrar_mensajes(prof_id, msg)
+        elif texto == "3r":
+            marcar_mensajes_leidos(prof_id)
+            msg.body("✅ Mensajes marcados como leídos.")
         elif texto == "4":
             set_user_states(numero, {"adm_prof_id": prof_id, "estado": "ADMIN_NUEVO_NOMBRE"})
             msg.body("Nombre del paciente:")
@@ -151,13 +159,13 @@ def _manejar_menu_admin(numero: str, texto: str, msg, es_general: bool, prof_id_
             msg.body(texto_reporte(prof_id))
         elif texto == "8":
             clear_user(numero)
-            msg.body("Hasta luego 👋")
+            msg.body("Hasta luego 👋\n_Panel admin cerrado._")
         else:
             msg.body(MENU_ADMIN_PROF)
         return
 
     # ── Admin general ─────────────────────────────────────────────────────────
-    if texto in ["1", "2", "4", "5", "6", "8"]:
+    if texto in ["1", "2", "4", "5", "6"]:
         set_user_states(numero, {
             "adm_accion_pendiente": texto,
             "estado": "ADMIN_ELEGIR_PROF",
@@ -169,12 +177,16 @@ def _manejar_menu_admin(numero: str, texto: str, msg, es_general: bool, prof_id_
         _mostrar_mensajes(None, msg)
         return
 
+    if texto == "3r":
+        marcar_mensajes_leidos(None)
+        msg.body("✅ Mensajes marcados como leídos.")
+        return
+
     if texto == "7":
         msg.body(texto_reporte(None))
         return
 
     if texto == "8":
-        # Reporte por profesional — primero elegir cuál
         set_user_states(numero, {
             "adm_accion_pendiente": "reporte_prof",
             "estado": "ADMIN_ELEGIR_PROF",
@@ -184,18 +196,17 @@ def _manejar_menu_admin(numero: str, texto: str, msg, es_general: bool, prof_id_
 
     if texto == "9":
         clear_user(numero)
-        msg.body("Hasta luego 👋")
+        msg.body("Hasta luego 👋\n_Panel admin cerrado._")
         return
 
     msg.body(MENU_ADMIN_GENERAL)
 
 
 def _elegir_profesional_admin(numero: str, texto: str, msg):
-    """Admin general elige profesional para la acción pendiente."""
     profs = listar_profesionales()
     try:
-        idx   = int(texto.strip()) - 1
-        prof  = profs[idx]
+        idx  = int(texto.strip()) - 1
+        prof = profs[idx]
     except (ValueError, IndexError):
         msg.body("❌ Opción inválida.\n\n" + texto_lista_profesionales())
         return
@@ -237,6 +248,7 @@ def _mostrar_turnos_hoy(prof_id: int, msg):
     hoy   = datetime.now().strftime("%d/%m/%Y")
     lista = turnos_del_dia(prof_id)
     prof  = get_professional_by_id(prof_id)
+    nombre_prof = f"{prof['last_name']}, {prof['first_name']}" if prof else "—"
 
     if not lista:
         msg.body(f"Sin turnos para hoy ({hoy}).")
@@ -250,7 +262,7 @@ def _mostrar_turnos_hoy(prof_id: int, msg):
 
     msg.body(
         f"📋 Turnos de hoy — {hoy}\n"
-        f"👨‍⚕️ {prof['name']}\n" +
+        f"👨‍⚕️ {nombre_prof}\n" +
         "─" * 25 + "\n" +
         "\n".join(lineas) + "\n" +
         "─" * 25 +
@@ -260,6 +272,7 @@ def _mostrar_turnos_hoy(prof_id: int, msg):
 
 def _mostrar_proximos(prof_id: int, msg):
     prof    = get_professional_by_id(prof_id)
+    nombre_prof = f"{prof['last_name']}, {prof['first_name']}" if prof else "—"
     futuros = proximos_turnos(prof_id)
 
     if not futuros:
@@ -273,7 +286,7 @@ def _mostrar_proximos(prof_id: int, msg):
         lineas.append(f"📅 {fecha}  🕐 {hora}  👤 {t['patient_name']}")
 
     msg.body(
-        f"📋 Próximos turnos — {prof['name']}\n" +
+        f"📋 Próximos turnos — {nombre_prof}\n" +
         "─" * 25 + "\n" +
         "\n".join(lineas) + "\n" +
         "─" * 25 +
@@ -296,7 +309,9 @@ def _mostrar_mensajes(prof_id, msg):
     for m in mensajes:
         tel   = (m["patient_phone"] or "").replace("whatsapp:+", "+")
         fecha = m["created_at"].strftime("%d/%m %H:%M") if m.get("created_at") else ""
-        prof_tag = f"  [{m['professional_name']}]" if m.get("professional_name") else ""
+        prof_tag = ""
+        if m.get("prof_last_name"):
+            prof_tag = f"  [{m['prof_last_name']}, {m['prof_first_name']}]"
         lineas.append(
             f"👤 {m['patient_name']} — {tel}{prof_tag}\n"
             f"💬 {m['content']}\n"
@@ -334,7 +349,6 @@ def _nuevo_turno_dni(numero: str, texto: str, msg):
         msg.body("❌ DNI inválido. Solo números:")
         return
 
-    # Buscar o preparar para crear
     paciente = identificar_paciente_por_dni(dni)
     if paciente:
         set_user_states(numero, {
@@ -342,21 +356,38 @@ def _nuevo_turno_dni(numero: str, texto: str, msg):
             "adm_dni":        dni,
             "estado":         "ADMIN_NUEVO_FECHA",
         })
+        obra = paciente.get("obra_social") or "sin obra social"
         msg.body(
             f"Paciente: *{paciente['name']}*\n"
-            f"Obra social: {paciente.get('obra_social') or 'sin obra social'}\n\n"
+            f"Obra social: {obra}\n\n"
             f"Fecha del turno (dd/mm/yyyy):"
         )
     else:
-        # Paciente nuevo — se crea con el nombre ya ingresado
-        nombre   = get_user_state(numero, "adm_nombre")
-        paciente = registrar_paciente("", nombre, dni)
+        # Paciente nuevo — pedir obra social
         set_user_states(numero, {
-            "adm_patient_id": paciente["id"],
-            "adm_dni":        dni,
-            "estado":         "ADMIN_NUEVO_FECHA",
+            "adm_dni":    dni,
+            "estado":     "ADMIN_NUEVO_OBRA",
         })
-        msg.body(f"Paciente nuevo registrado: *{nombre}*\n\nFecha del turno (dd/mm/yyyy):")
+        msg.body(
+            f"Paciente nuevo: *{get_user_state(numero, 'adm_nombre')}*\n"
+            f"¿Tiene obra social? Escribí el nombre o *no*:"
+        )
+
+
+def _nuevo_turno_obra(numero: str, texto: str, msg):
+    obra_social = None if texto.lower() in ["no", "no tengo", "-"] else texto.strip()
+    nombre = get_user_state(numero, "adm_nombre")
+    dni    = get_user_state(numero, "adm_dni")
+
+    paciente = registrar_paciente("", nombre, dni, obra_social)
+    set_user_states(numero, {
+        "adm_patient_id": paciente["id"],
+        "estado":         "ADMIN_NUEVO_FECHA",
+    })
+    msg.body(
+        f"✅ Paciente registrado: *{nombre}*\n\n"
+        f"Fecha del turno (dd/mm/yyyy):"
+    )
 
 
 def _nuevo_turno_fecha(numero: str, texto: str, msg):
@@ -382,9 +413,9 @@ def _nuevo_turno_fecha(numero: str, texto: str, msg):
 
 
 def _nuevo_turno_hora(numero: str, texto: str, msg, es_general: bool):
-    hora      = normalizar_hora(texto)
-    prof_id   = get_user_state(numero, "adm_prof_id")
-    fecha     = get_user_state(numero, "adm_fecha")
+    hora       = normalizar_hora(texto)
+    prof_id    = get_user_state(numero, "adm_prof_id")
+    fecha      = get_user_state(numero, "adm_fecha")
     patient_id = get_user_state(numero, "adm_patient_id")
 
     if hora is None:
@@ -398,10 +429,11 @@ def _nuevo_turno_hora(numero: str, texto: str, msg, es_general: bool):
 
     agregar_turno(prof_id, patient_id, fecha, hora, created_by="admin")
     prof = get_professional_by_id(prof_id)
+    nombre_prof = f"{prof['last_name']}, {prof['first_name']}" if prof else "—"
     msg.body(
         f"✅ Turno creado\n"
         f"📅 {fecha} a las {hora} hs\n"
-        f"👨‍⚕️ {prof['name']}"
+        f"👨‍⚕️ {nombre_prof}"
     )
     set_user_state(numero, "estado", "ADMIN")
 
