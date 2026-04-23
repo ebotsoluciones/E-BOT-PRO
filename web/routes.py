@@ -1,6 +1,5 @@
 """
-web/routes.py — 
-rutas del panel web E-BOT PRO 🦙🔥
+web/routes.py — rutas del panel web E-BOT PRO 🦙🔥
 
 Rutas:
   GET  /admin/              → login
@@ -24,7 +23,7 @@ from flask import (
 from db import (
     get_professionals, get_professional_by_id,
     get_appointments_by_date, get_upcoming_appointments,
-    get_pending_messages, mark_all_read,
+    get_pending_messages, mark_message_read, mark_all_read,
     get_report_by_month, get_patient_by_id,
 )
 from services import (
@@ -421,3 +420,37 @@ def api_alta_paciente():
         return jsonify({"ok": True, "id": p["id"], "name": p["name"], "dni": p["dni"]})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROFESIONALES — vincular WhatsApp (alta en tabla admins)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/profesionales/<int:prof_id>/whatsapp", methods=["POST"])
+@login_required
+def vincular_whatsapp_prof(prof_id):
+    from db import create_admin, get_admin_by_phone, get_professional_by_id
+    phone = request.form.get("phone", "").strip()
+    if not phone:
+        flash("❌ Ingresá un número de WhatsApp.")
+        return redirect(url_for("web.profesionales"))
+
+    # Normalizar formato
+    if not phone.startswith("whatsapp:"):
+        phone = "whatsapp:" + phone
+
+    prof = get_professional_by_id(prof_id)
+    if not prof:
+        flash("❌ Profesional no encontrado.")
+        return redirect(url_for("web.profesionales"))
+
+    # Verificar si ya existe
+    existente = get_admin_by_phone(phone)
+    if existente:
+        flash(f"⚠️ Ese número ya está registrado como admin.")
+        return redirect(url_for("web.profesionales"))
+
+    nombre = f"{prof['last_name']}, {prof['first_name']}"
+    create_admin(phone, nombre, role="professional", professional_id=prof_id)
+    flash(f"✅ WhatsApp vinculado a {nombre}.")
+    return redirect(url_for("web.profesionales"))
