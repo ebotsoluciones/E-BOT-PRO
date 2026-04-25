@@ -68,9 +68,8 @@ def procesar(numero: str, body: str, resp):
 
     # ── Router principal ──────────────────────────────────────────────────────
     # ── Router principal ──────────────────────────────────────────────────────
-admin = get_admin_by_phone(numero)
 
-    if admin:
-            manejar_admin(numero, body, msg)
+    if estado in _ESTADOS_ADMIN:
+        manejar_admin(numero, body, msg)
     else:
-            manejar_paciente(numero, body, msg)
+        manejar_paciente(numero, body, msg)
