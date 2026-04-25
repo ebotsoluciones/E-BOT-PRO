@@ -1,5 +1,5 @@
 """
-web/routes.py — rutas del panel web E-BOT PRO 🦙 🔥
+web/routes.py — rutas del panel web E-BOT PRO 🦙🔥
 
 Rutas:
   GET  /admin/              → login
@@ -23,7 +23,7 @@ from flask import (
 from db import (
     get_professionals, get_professional_by_id,
     get_appointments_by_date, get_upcoming_appointments,
-    get_pending_messages, mark_all_read,
+    get_pending_messages, mark_message_read, mark_all_read,
     get_report_by_month, get_patient_by_id,
 )
 from services import (
@@ -114,24 +114,42 @@ def dashboard():
 @web_bp.route("/agenda")
 @login_required
 def agenda():
-    profs      = listar_profesionales()
-    prof_id    = request.args.get("prof_id", type=int)
-    fecha_str  = request.args.get("fecha", date.today().strftime("%d/%m/%Y"))
+    from datetime import timedelta
+    DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 
-    turnos     = []
-    horarios   = []
-    prof_sel   = None
+    profs     = listar_profesionales()
+    prof_id   = request.args.get("prof_id", type=int)
+    fecha_str = request.args.get("fecha", date.today().strftime("%d/%m/%Y"))
+
+    try:
+        fecha_sel = datetime.strptime(fecha_str, "%d/%m/%Y").date()
+    except ValueError:
+        fecha_sel = date.today()
+        fecha_str = fecha_sel.strftime("%d/%m/%Y")
+
+    # Calcular semana (lunes a domingo)
+    lunes = fecha_sel - timedelta(days=fecha_sel.weekday())
+    dias_semana = []
+    for i in range(7):
+        d = lunes + timedelta(days=i)
+        dias_semana.append({
+            "nombre":    DIAS[i],
+            "numero":    d.strftime("%d"),
+            "fecha_str": d.strftime("%d/%m/%Y"),
+        })
+
+    turnos   = []
+    horarios = []
+    prof_sel = None
 
     if prof_id:
-        try:
-            fecha_iso = datetime.strptime(fecha_str, "%d/%m/%Y").date().isoformat()
-        except ValueError:
-            fecha_iso = date.today().isoformat()
-            fecha_str = date.today().strftime("%d/%m/%Y")
+        fecha_iso = fecha_sel.isoformat()
+        prof_sel  = get_professional_by_id(prof_id)
+        turnos    = get_appointments_by_date(prof_id, fecha_iso)
+        horarios  = horarios_libres(prof_id, fecha_str)
 
-        prof_sel = get_professional_by_id(prof_id)
-        turnos   = get_appointments_by_date(prof_id, fecha_iso)
-        horarios = horarios_libres(prof_id, fecha_str)
+    semana_anterior = (lunes - timedelta(days=7)).strftime("%d/%m/%Y")
+    semana_siguiente = (lunes + timedelta(days=7)).strftime("%d/%m/%Y")
 
     return render_template("agenda.html",
         profs=profs,
@@ -140,6 +158,12 @@ def agenda():
         fecha=fecha_str,
         turnos=turnos,
         horarios=horarios,
+        dias_semana=dias_semana,
+        semana_inicio=lunes.strftime("%d/%m/%Y"),
+        semana_fin=(lunes + timedelta(days=6)).strftime("%d/%m/%Y"),
+        semana_anterior=semana_anterior,
+        semana_siguiente=semana_siguiente,
+        hoy=date.today().strftime("%d/%m/%Y"),
     )
 
 
@@ -176,22 +200,42 @@ def marcar_leido():
 @web_bp.route("/reportes")
 @login_required
 def reportes():
+    from db import get_report_by_range
     hoy     = date.today()
-    año     = request.args.get("año",  hoy.year,  type=int)
-    mes     = request.args.get("mes",  hoy.month, type=int)
     prof_id = request.args.get("prof_id", type=int)
+    modo    = request.args.get("modo", "")
     profs   = listar_profesionales()
 
-    reporte = get_report_by_month(año, mes, prof_id)
+    if modo == "todo":
+        desde = "2024-01-01"
+        hasta = hoy.isoformat()
+    else:
+        desde = request.args.get("desde", date(hoy.year, hoy.month, 1).isoformat())
+        hasta = request.args.get("hasta", hoy.isoformat())
+
+    reporte = get_report_by_range(desde, hasta, prof_id)
 
     return render_template("reportes.html",
         profs=profs,
         prof_id=prof_id,
-        año=año,
-        mes=mes,
+        desde=desde,
+        hasta=hasta,
         reporte=reporte,
-        meses=_nombres_meses(),
     )
+
+
+@web_bp.route("/reportes/borrar", methods=["POST"])
+@login_required
+def borrar_historico():
+    from db import borrar_turnos_anteriores
+    hasta_fecha = request.form.get("hasta_fecha")
+    prof_id     = request.form.get("prof_id", type=int)
+    if hasta_fecha:
+        borrar_turnos_anteriores(hasta_fecha, prof_id)
+        flash(f"✅ Turnos anteriores al {hasta_fecha} eliminados correctamente.")
+    else:
+        flash("❌ Fecha inválida.")
+    return redirect(url_for("web.reportes", prof_id=prof_id))
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
