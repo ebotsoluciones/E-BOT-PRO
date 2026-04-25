@@ -563,3 +563,62 @@ def get_report_by_month(year: int, month: int, prof_id: int = None) -> dict:
         detail = cur.fetchall()
 
         return {"summary": summary, "detail": detail}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# REPORTES POR RANGO DE FECHAS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def get_report_by_range(desde: str, hasta: str, prof_id: int = None) -> dict:
+    """Reporte por rango de fechas ISO (YYYY-MM-DD)."""
+    with get_cursor() as cur:
+        base = """
+            SELECT COUNT(*) as total,
+                   COUNT(DISTINCT a.patient_id) as unique_patients
+            FROM appointments a
+            WHERE a.date BETWEEN %s AND %s
+              AND a.status = 'active'
+        """
+        if prof_id:
+            cur.execute(base + " AND a.professional_id = %s", (desde, hasta, prof_id))
+        else:
+            cur.execute(base, (desde, hasta))
+        summary = cur.fetchone()
+
+        detail_q = """
+            SELECT a.date, a.time,
+                   p.name as patient_name, p.obra_social,
+                   pr.last_name  as prof_last_name,
+                   pr.first_name as prof_first_name
+            FROM appointments a
+            JOIN patients      p  ON p.id  = a.patient_id
+            JOIN professionals pr ON pr.id = a.professional_id
+            WHERE a.date BETWEEN %s AND %s
+              AND a.status = 'active'
+        """
+        if prof_id:
+            cur.execute(detail_q + " AND a.professional_id = %s ORDER BY a.date, a.time",
+                        (desde, hasta, prof_id))
+        else:
+            cur.execute(detail_q + " ORDER BY a.date, a.time", (desde, hasta))
+        detail = cur.fetchall()
+
+        return {"summary": summary, "detail": detail}
+
+
+def borrar_turnos_anteriores(hasta_fecha: str, prof_id: int = None):
+    """Borra lógicamente turnos anteriores a una fecha (marca como 'deleted')."""
+    with get_cursor() as cur:
+        if prof_id:
+            cur.execute("""
+                UPDATE appointments
+                SET status = 'deleted'
+                WHERE date < %s AND professional_id = %s
+                  AND status = 'active'
+            """, (hasta_fecha, prof_id))
+        else:
+            cur.execute("""
+                UPDATE appointments
+                SET status = 'deleted'
+                WHERE date < %s AND status = 'active'
+            """, (hasta_fecha,))
