@@ -1,5 +1,5 @@
 """
-handlers_admin.py — panel admin WhatsApp E-BOT PRO 🦙🔥
+handlers_admin.py — panel admin WhatsApp  E-BOT PRO 🦙🔥
 
 Dos niveles de acceso:
   general      → ve todos los profesionales, reporte consolidado
