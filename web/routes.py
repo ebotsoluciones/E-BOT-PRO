@@ -23,8 +23,7 @@ from flask import (
 from db import (
     get_professionals, get_professional_by_id,
     get_appointments_by_date, get_upcoming_appointments,
-    get_pending_messages, mark_message_read, mark_all_read,
-#    get_pending_messages, mark_all_read,
+    get_pending_messages, mark_all_read,
     get_report_by_month, get_patient_by_id,
 )
 from services import (
