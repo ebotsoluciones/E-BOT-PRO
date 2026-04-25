@@ -4,43 +4,57 @@
 
 {% block extra_head %}
 <style>
-  #resultado-paciente {
-    margin-top: 8px;
+  .week-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .week-nav .semana {
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 200px;
+    text-align: center;
+  }
+  .day-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .day-tab {
+    padding: 8px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
     font-size: 13px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    display: none;
+    text-decoration: none;
+    color: var(--text);
+    transition: background 0.15s;
+    text-align: center;
+    min-width: 70px;
   }
-  #resultado-paciente.encontrado {
-    background: #e1f5ee;
-    color: #085041;
-    border: 1px solid #9fe1cb;
-    display: block;
+  .day-tab:hover { background: var(--bg); }
+  .day-tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent-d);
+    font-weight: 500;
   }
-  #resultado-paciente.no-encontrado {
-    background: #faeeda;
-    color: #633806;
-    border: 1px solid #fac775;
-    display: block;
-  }
-  #form-alta-paciente {
-    display: none;
-    margin-top: 12px;
-    padding: 12px;
-    background: #f8f7f4;
-    border-radius: 6px;
-    border: 1px solid #e2e0d8;
-  }
+  .day-tab .dia-nombre { font-size: 11px; color: inherit; display: block; }
+  .day-tab .dia-num { font-size: 16px; font-weight: 600; }
+  .day-tab.active .dia-nombre { color: rgba(255,255,255,0.8); }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Filtro profesional y fecha -->
-<div class="card" style="margin-bottom:20px;">
+<!-- Filtro profesional -->
+<div class="card" style="margin-bottom:16px;">
   <form method="GET" action="{{ url_for('web.agenda') }}"
         style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
-    <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+    <div class="form-group" style="margin:0; flex:1; min-width:180px;">
       <label>Profesional</label>
       <select name="prof_id" onchange="this.form.submit()">
         <option value="">— Elegir —</option>
@@ -51,18 +65,36 @@
         {% endfor %}
       </select>
     </div>
-    <div class="form-group" style="margin:0; flex:1; min-width:140px;">
-      <label>Fecha</label>
-      <input type="text" name="fecha" value="{{ fecha }}"
-             placeholder="dd/mm/yyyy">
-    </div>
-    <button type="submit" class="btn btn-primary">Ver agenda</button>
+    <input type="hidden" name="fecha" value="{{ fecha }}">
   </form>
 </div>
 
 {% if prof_sel %}
 
-<div class="grid-2" style="margin-bottom:20px; align-items:start;">
+<!-- Navegación semanal -->
+<div class="week-nav">
+  <a href="{{ url_for('web.agenda', prof_id=prof_id, fecha=semana_anterior) }}"
+     class="btn btn-sm">← Anterior</a>
+  <span class="semana">Semana del {{ semana_inicio }} al {{ semana_fin }}</span>
+  <a href="{{ url_for('web.agenda', prof_id=prof_id, fecha=semana_siguiente) }}"
+     class="btn btn-sm">Siguiente →</a>
+  <a href="{{ url_for('web.agenda', prof_id=prof_id, fecha=hoy) }}"
+     class="btn btn-sm">Hoy</a>
+</div>
+
+<!-- Tabs de días de la semana -->
+<div class="day-tabs">
+  {% for dia in dias_semana %}
+  <a href="{{ url_for('web.agenda', prof_id=prof_id, fecha=dia.fecha_str) }}"
+     class="day-tab {% if dia.fecha_str == fecha %}active{% endif %}">
+    <span class="dia-nombre">{{ dia.nombre }}</span>
+    <span class="dia-num">{{ dia.numero }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Contenido del día seleccionado -->
+<div class="grid-2" style="align-items:start;">
 
   <!-- Turnos del día -->
   <div class="card">
@@ -112,13 +144,12 @@
 
     <!-- Nuevo turno -->
     <div class="card">
-      <div class="card-title">Nuevo turno</div>
+      <div class="card-title">Nuevo turno — {{ fecha }}</div>
       <form method="POST" action="{{ url_for('web.nuevo_turno') }}" id="form-nuevo-turno">
         <input type="hidden" name="prof_id"    value="{{ prof_id }}">
         <input type="hidden" name="fecha"      value="{{ fecha }}">
         <input type="hidden" name="patient_id" id="patient_id_hidden" value="">
 
-        <!-- Horario -->
         <div class="form-group">
           <label>Horario</label>
           {% if horarios %}
@@ -129,12 +160,11 @@
             </select>
           {% else %}
             <div style="font-size:13px; color:#6b6a64; padding:6px 0;">
-              Sin horarios disponibles para esta fecha.
+              Sin horarios disponibles.
             </div>
           {% endif %}
         </div>
 
-        <!-- Buscar paciente -->
         <div class="form-group">
           <label>Buscar paciente (DNI o apellido)</label>
           <div style="display:flex; gap:8px;">
@@ -142,13 +172,14 @@
                    style="flex:1;" autocomplete="off">
             <button type="button" class="btn btn-sm" onclick="buscarPaciente()">Buscar</button>
           </div>
-          <div id="resultado-paciente"></div>
+          <div id="resultado-paciente" style="margin-top:8px; font-size:13px;
+               padding:8px 10px; border-radius:6px; display:none;"></div>
         </div>
 
-        <!-- Alta rápida paciente -->
-        <div id="form-alta-paciente">
+        <div id="form-alta-paciente" style="display:none; margin-top:8px; padding:12px;
+             background:#f8f7f4; border-radius:6px; border:1px solid #e2e0d8;">
           <div style="font-size:12px; font-weight:500; color:#633806; margin-bottom:10px;">
-            Paciente no encontrado — completá los datos para registrarlo
+            Paciente no encontrado — completá los datos
           </div>
           <div class="form-group">
             <label>Nombre y apellido *</label>
@@ -169,11 +200,10 @@
 
         {% if horarios %}
           <div style="margin-top:12px;">
-            <button type="submit" class="btn btn-primary" id="btn-crear-turno" disabled
-                    style="opacity:0.5;">
-              Crear turno
-            </button>
-            <span id="paciente-seleccionado" style="font-size:12px; color:#6b6a64; margin-left:8px;"></span>
+            <button type="submit" class="btn btn-primary" id="btn-crear-turno"
+                    disabled style="opacity:0.5;">Crear turno</button>
+            <span id="paciente-seleccionado"
+                  style="font-size:12px; color:#6b6a64; margin-left:8px;"></span>
           </div>
         {% endif %}
       </form>
@@ -181,7 +211,7 @@
 
     <!-- Bloquear agenda -->
     <div class="card">
-      <div class="card-title">Bloquear agenda</div>
+      <div class="card-title">Bloquear agenda — {{ fecha }}</div>
       <form method="POST" action="{{ url_for('web.nuevo_bloqueo') }}">
         <input type="hidden" name="prof_id" value="{{ prof_id }}">
         <input type="hidden" name="fecha"   value="{{ fecha }}">
@@ -194,15 +224,11 @@
               {% endfor %}
             </select>
           {% else %}
-            <div style="font-size:13px; color:#6b6a64; padding:6px 0;">
-              Sin horarios para bloquear.
-            </div>
+            <div style="font-size:13px; color:#6b6a64; padding:6px 0;">Sin horarios.</div>
           {% endif %}
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          {% if horarios %}
-            <button type="submit" class="btn">Bloquear hora</button>
-          {% endif %}
+          {% if horarios %}<button type="submit" class="btn">Bloquear hora</button>{% endif %}
           <button type="submit" name="todos" value="1" class="btn btn-danger">
             Bloquear día completo
           </button>
@@ -215,40 +241,37 @@
 
 {% else %}
   <div class="card">
-    <div class="empty">Seleccioná un profesional y una fecha para ver la agenda.</div>
+    <div class="empty">Seleccioná un profesional para ver la agenda.</div>
   </div>
 {% endif %}
 
 <script>
-let pacienteId = null;
-
 async function buscarPaciente() {
-  const q = document.getElementById('buscar-paciente').value.trim();
+  const q   = document.getElementById('buscar-paciente').value.trim();
   if (!q) return;
-
   const res  = await fetch(`/admin/api/paciente?q=${encodeURIComponent(q)}`);
   const data = await res.json();
   const div  = document.getElementById('resultado-paciente');
   const alta = document.getElementById('form-alta-paciente');
 
   if (data.found) {
-    pacienteId = data.id;
     document.getElementById('patient_id_hidden').value = data.id;
-    div.className = 'encontrado';
+    div.style.display = 'block';
+    div.style.background = '#e1f5ee';
+    div.style.color = '#085041';
+    div.style.border = '1px solid #9fe1cb';
     div.textContent = `✅ ${data.name} — DNI: ${data.dni} — ${data.obra_social || 'sin obra social'}`;
     alta.style.display = 'none';
     habilitarBoton();
   } else {
-    pacienteId = null;
     document.getElementById('patient_id_hidden').value = '';
-    div.className = 'no-encontrado';
-    div.textContent = `⚠️ Paciente no encontrado. Completá los datos para registrarlo.`;
-    // Pre-completar DNI si buscó por número
-    if (/^\d+$/.test(q)) {
-      document.getElementById('alta-dni').value = q;
-    } else {
-      document.getElementById('alta-nombre').value = q;
-    }
+    div.style.display = 'block';
+    div.style.background = '#faeeda';
+    div.style.color = '#633806';
+    div.style.border = '1px solid #fac775';
+    div.textContent = '⚠️ No encontrado. Completá los datos para registrarlo.';
+    if (/^\d+$/.test(q)) document.getElementById('alta-dni').value = q;
+    else document.getElementById('alta-nombre').value = q;
     alta.style.display = 'block';
     deshabilitarBoton();
   }
@@ -258,58 +281,42 @@ async function altaPaciente() {
   const nombre = document.getElementById('alta-nombre').value.trim();
   const dni    = document.getElementById('alta-dni').value.trim().replace(/\./g, '');
   const obra   = document.getElementById('alta-obra').value.trim();
-
-  if (!nombre || !dni) {
-    alert('Nombre y DNI son obligatorios.');
-    return;
-  }
-
+  if (!nombre || !dni) { alert('Nombre y DNI son obligatorios.'); return; }
   const res  = await fetch('/admin/api/paciente/alta', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nombre, dni, obra_social: obra || null })
   });
   const data = await res.json();
-
   if (data.ok) {
-    pacienteId = data.id;
     document.getElementById('patient_id_hidden').value = data.id;
     const div = document.getElementById('resultado-paciente');
-    div.className = 'encontrado';
+    div.style.display = 'block';
+    div.style.background = '#e1f5ee';
+    div.style.color = '#085041';
+    div.style.border = '1px solid #9fe1cb';
     div.textContent = `✅ ${data.name} registrado — DNI: ${data.dni}`;
     document.getElementById('form-alta-paciente').style.display = 'none';
     habilitarBoton();
-  } else {
-    alert('Error: ' + (data.error || 'No se pudo registrar el paciente.'));
-  }
+  } else { alert('Error: ' + (data.error || 'No se pudo registrar.')); }
 }
 
 function habilitarBoton() {
   const btn = document.getElementById('btn-crear-turno');
-  if (btn) {
-    btn.disabled = false;
-    btn.style.opacity = '1';
-  }
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
   document.getElementById('paciente-seleccionado').textContent = 'Paciente listo ✅';
 }
-
 function deshabilitarBoton() {
   const btn = document.getElementById('btn-crear-turno');
-  if (btn) {
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
-  }
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
   document.getElementById('paciente-seleccionado').textContent = '';
 }
 
-// Buscar con Enter
 document.addEventListener('DOMContentLoaded', function() {
   const input = document.getElementById('buscar-paciente');
-  if (input) {
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') { e.preventDefault(); buscarPaciente(); }
-    });
-  }
+  if (input) input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); buscarPaciente(); }
+  });
 });
 </script>
 
