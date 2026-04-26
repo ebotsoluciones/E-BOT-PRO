@@ -72,3 +72,4 @@ def procesar(numero: str, body: str, resp):
     else:
         manejar_paciente(numero, body, msg)
 
+    
