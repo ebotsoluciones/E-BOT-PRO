@@ -42,14 +42,21 @@ def init_db():
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS professionals (
-                id          SERIAL PRIMARY KEY,
-                last_name   VARCHAR(100) NOT NULL,
-                first_name  VARCHAR(100) NOT NULL,
-                specialty   VARCHAR(100),
-                phone       VARCHAR(30),
-                active      BOOLEAN DEFAULT TRUE,
-                created_at  TIMESTAMP DEFAULT NOW()
+                id               SERIAL PRIMARY KEY,
+                last_name        VARCHAR(100) NOT NULL,
+                first_name       VARCHAR(100) NOT NULL,
+                specialty        VARCHAR(100),
+                phone            VARCHAR(30),
+                active           BOOLEAN DEFAULT TRUE,
+                acepta_mensajes  BOOLEAN DEFAULT TRUE,
+                created_at       TIMESTAMP DEFAULT NOW()
             )
+        """)
+
+        # Migración: agregar acepta_mensajes si no existe
+        cur.execute("""
+            ALTER TABLE professionals
+            ADD COLUMN IF NOT EXISTS acepta_mensajes BOOLEAN DEFAULT TRUE
         """)
 
         cur.execute("""
@@ -622,3 +629,18 @@ def borrar_turnos_anteriores(hasta_fecha: str, prof_id: int = None):
                 SET status = 'deleted'
                 WHERE date < %s AND status = 'active'
             """, (hasta_fecha,))
+
+
+def toggle_mensajes(prof_id: int, acepta: bool):
+    with get_cursor() as cur:
+        cur.execute("""
+            UPDATE professionals SET acepta_mensajes = %s WHERE id = %s
+        """, (acepta, prof_id))
+
+def profesional_acepta_mensajes(prof_id: int) -> bool:
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT acepta_mensajes FROM professionals WHERE id = %s
+        """, (prof_id,))
+        row = cur.fetchone()
+        return row["acepta_mensajes"] if row else True
