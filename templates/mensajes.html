@@ -4,10 +4,11 @@
 
 {% block content %}
 
+<!-- Filtros -->
 <div class="card" style="margin-bottom:20px;">
-  <form method="GET" style="display:flex; gap:12px; align-items:flex-end;">
-    <div class="form-group" style="margin:0; flex:1; max-width:280px;">
-      <label>Filtrar por profesional</label>
+  <form method="GET" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin:0; flex:1; min-width:180px;">
+      <label>Profesional</label>
       <select name="prof_id" onchange="this.form.submit()">
         <option value="">Todos</option>
         {% for p in profs %}
@@ -17,6 +18,15 @@
         {% endfor %}
       </select>
     </div>
+    <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+      <label>Buscar paciente</label>
+      <input type="text" name="paciente" value="{{ paciente_q }}"
+             placeholder="Nombre o DNI...">
+    </div>
+    <button type="submit" class="btn btn-primary">Buscar</button>
+    {% if paciente_q or prof_id %}
+      <a href="{{ url_for('web.mensajes') }}" class="btn">Limpiar</a>
+    {% endif %}
   </form>
 </div>
 
@@ -27,6 +37,7 @@
     </span>
     <form method="POST" action="{{ url_for('web.marcar_leido') }}">
       {% if prof_id %}<input type="hidden" name="prof_id" value="{{ prof_id }}">{% endif %}
+      {% if paciente_q %}<input type="hidden" name="paciente" value="{{ paciente_q }}">{% endif %}
       <button type="submit" class="btn btn-sm btn-primary">Marcar todos como leídos</button>
     </form>
   </div>
