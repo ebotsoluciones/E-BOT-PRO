@@ -531,8 +531,8 @@ def _iniciar_mensaje(numero: str, msg):
             prof_id = turnos[0]["professional_id"]
             if not profesional_acepta_mensajes(prof_id):
                 msg.body(
-                    "ℹ️ Los mensajes no están disponibles para este profesional.
-"
+                    "ℹ️ Los mensajes no están disponibles para este profesional.\n"
+
                     "Para consultas comunicate al consultorio directamente."
                 )
                 return
