@@ -1,3 +1,4 @@
+
 """
 handlers_paciente.py — flujo conversacional del paciente E-BOT PRO 🦙🔥
 
@@ -262,21 +263,70 @@ def _elegir_profesional(numero: str, texto: str, msg):
         msg.body("❌ Opción inválida.\n\n" + texto_lista_profesionales())
         return
 
-    set_user_states(numero, {
-        "prof_id":     prof["id"],
-        "prof_nombre": f"{prof['last_name']}, {prof['first_name']}",
-        "estado":      "TURNO_FECHA",
-    })
     especialidad = f" — {prof['specialty']}" if prof.get("specialty") else ""
-    msg.body(
-        f"Turno con *{prof['last_name']}, {prof['first_name']}*{especialidad}\n\n"
-        f"Ingresá la fecha del turno (dd/mm/yyyy):"
-    )
+    prof_nombre  = f"{prof['last_name']}, {prof['first_name']}"
+    primer_fecha, primer_hora = _primer_turno_disponible(prof["id"])
+
+    set_user_states(numero, {
+        "prof_id":               prof["id"],
+        "prof_nombre":           prof_nombre,
+        "estado":                "TURNO_FECHA",
+        "primer_turno_sugerido": f"{primer_fecha}|{primer_hora}" if primer_fecha else None,
+    })
+
+    if primer_fecha and primer_hora:
+        msg.body(
+            f"Turno con *{prof_nombre}*{especialidad}\n\n"
+            f"📅 Primer turno disponible:\n"
+            f"*{primer_fecha}* a las *{primer_hora} hs*\n\n"
+            f"Respondé *S* para confirmar ese horario\n"
+            f"o ingresá otra fecha (dd/mm/yyyy):"
+        )
+    else:
+        msg.body(
+            f"Turno con *{prof_nombre}*{especialidad}\n\n"
+            f"Ingresá la fecha del turno (dd/mm/yyyy):"
+        )
+
+
+def _primer_turno_disponible(prof_id: int) -> tuple:
+    """Retorna (fecha_str, hora) del primer slot disponible o (None, None)."""
+    from datetime import timedelta
+    from config import SEMANAS_AGENDA
+    hoy    = datetime.now().date()
+    limite = hoy + timedelta(weeks=SEMANAS_AGENDA)
+    fecha  = hoy
+    while fecha <= limite:
+        fecha_str = fecha.strftime("%d/%m/%Y")
+        libres    = horarios_libres(prof_id, fecha_str)
+        if libres:
+            return fecha_str, libres[0]
+        fecha += timedelta(days=1)
+    return None, None
 
 
 def _turno_fecha(numero: str, texto: str, msg):
     from datetime import timedelta
     from config import SEMANAS_AGENDA
+
+    # El paciente acepta el primer turno sugerido
+    if texto.lower() in ["s", "si", "sí", "yes"]:
+        sugerido = get_user_state(numero, "primer_turno_sugerido")
+        if sugerido:
+            partes = sugerido.split("|")
+            if len(partes) == 2:
+                fecha_str, hora = partes
+                prof_nombre = get_user_state(numero, "prof_nombre")
+                set_user_states(numero, {"turno_hora": hora, "estado": "CONFIRMAR_TURNO"})
+                set_user_state(numero, "turno_fecha", fecha_str)
+                msg.body(
+                    f"📋 *Resumen del turno*\n\n"
+                    f"👨‍⚕️ {prof_nombre}\n"
+                    f"📅 {fecha_str}\n"
+                    f"🕐 {hora} hs\n\n"
+                    f"¿Confirmás? (S/N)"
+                )
+                return
 
     try:
         fecha = datetime.strptime(texto.strip(), "%d/%m/%Y").date()
@@ -292,19 +342,12 @@ def _turno_fecha(numero: str, texto: str, msg):
         return
 
     if fecha > limite:
-        limite_str = limite.strftime("%d/%m/%Y")
         msg.body(
-            f"❌ Solo podemos tomar turnos hasta el {limite_str}.\n"
+            f"❌ Solo podemos tomar turnos hasta el {limite.strftime('%d/%m/%Y')}.
+"
             f"Ingresá una fecha dentro de ese plazo:"
         )
         return
-
-        
-            
-
-            
-        
-        
 
     fecha_str = fecha.strftime("%d/%m/%Y")
     prof_id   = get_user_state(numero, "prof_id")
@@ -477,8 +520,22 @@ def _cancelar_mi_turno(numero: str, texto: str, msg):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _iniciar_mensaje(numero: str, msg):
+    from db import profesional_acepta_mensajes
     paciente = identificar_paciente_por_telefono(numero)
+
+    # Si tiene un profesional asociado, verificar si acepta mensajes
     if paciente:
+        from db import get_patient_appointments
+        turnos = get_patient_appointments(paciente["id"])
+        if turnos:
+            prof_id = turnos[0]["professional_id"]
+            if not profesional_acepta_mensajes(prof_id):
+                msg.body(
+                    "ℹ️ Los mensajes no están disponibles para este profesional.
+"
+                    "Para consultas comunicate al consultorio directamente."
+                )
+                return
         set_user_states(numero, {"patient_id": paciente["id"], "estado": "MENSAJE"})
     else:
         set_user_state(numero, "estado", "MENSAJE")
