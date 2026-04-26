@@ -42,6 +42,12 @@
         onclick="abrirWhatsapp({{ p.id }}, '{{ p.last_name }}, {{ p.first_name }}')">
         📱 WhatsApp
       </button>
+      <form method="POST" action="{{ url_for('web.toggle_mensajes_prof', prof_id=p.id) }}">
+        <button type="submit" class="btn btn-sm"
+                style="background:{% if p.acepta_mensajes %}#e1f5ee; color:#085041{% else %}#fcebeb; color:#791f1f{% endif %};">
+          {% if p.acepta_mensajes %}💬 Msj ON{% else %}🔇 Msj OFF{% endif %}
+        </button>
+      </form>
       <form method="POST" action="{{ url_for('web.desactivar_profesional', prof_id=p.id) }}"
             onsubmit="return confirm('¿Dar de baja a {{ p.last_name }}, {{ p.first_name }}?')">
         <button type="submit" class="btn btn-sm btn-danger">Baja</button>
