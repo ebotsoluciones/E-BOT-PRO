@@ -1,4 +1,5 @@
 
+
 """
 web/routes.py — rutas del panel web E-BOT PRO 🦙🔥
 
@@ -175,13 +176,24 @@ def agenda():
 @web_bp.route("/mensajes")
 @login_required
 def mensajes():
-    prof_id  = request.args.get("prof_id", type=int)
-    profs    = listar_profesionales()
-    mensajes = get_pending_messages(prof_id)
+    from db import get_all_patients
+    prof_id    = request.args.get("prof_id", type=int)
+    paciente_q = request.args.get("paciente", "").strip()
+    profs      = listar_profesionales()
+    mensajes   = get_pending_messages(prof_id)
+
+    # Filtrar por paciente si se ingresó búsqueda
+    if paciente_q:
+        q = paciente_q.lower()
+        mensajes = [m for m in mensajes
+                    if q in (m.get("patient_name") or "").lower()
+                    or q in (m.get("patient_phone") or "").lower()]
+
     return render_template("mensajes.html",
         mensajes=mensajes,
         profs=profs,
         prof_id=prof_id,
+        paciente_q=paciente_q,
     )
 
 
@@ -498,4 +510,20 @@ def vincular_whatsapp_prof(prof_id):
     nombre = f"{prof['last_name']}, {prof['first_name']}"
     create_admin(phone, nombre, role="professional", professional_id=prof_id)
     flash(f"✅ WhatsApp vinculado a {nombre}.")
+    return redirect(url_for("web.profesionales"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROFESIONALES — toggle mensajes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@web_bp.route("/profesionales/<int:prof_id>/mensajes", methods=["POST"])
+@login_required
+def toggle_mensajes_prof(prof_id):
+    from db import toggle_mensajes, get_professional_by_id
+    prof  = get_professional_by_id(prof_id)
+    nuevo = not prof.get("acepta_mensajes", True)
+    toggle_mensajes(prof_id, nuevo)
+    estado = "activados" if nuevo else "desactivados"
+    flash(f"✅ Mensajes {estado} para {prof['last_name']}, {prof['first_name']}.")
     return redirect(url_for("web.profesionales"))
