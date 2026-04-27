@@ -1,3 +1,4 @@
+
 """
 db.py — capa de base de datos E-BOT PRO 🦙🔥
 Gestiona conexión PostgreSQL y schema completo.
