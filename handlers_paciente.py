@@ -1,4 +1,3 @@
-
 """
 handlers_paciente.py — flujo conversacional del paciente E-BOT PRO 🦙🔥
 
@@ -91,7 +90,8 @@ def manejar_paciente(numero: str, body: str, msg):
         "TURNO_HORA":         _turno_hora,
         "CONFIRMAR_TURNO":    _confirmar_turno,
         "MIS_TURNOS_CANCELAR":_cancelar_mi_turno,
-        "MENSAJE":            _recibir_mensaje,
+        "MENSAJE":             _recibir_mensaje,
+        "ELEGIR_PROF_MENSAJE": _elegir_prof_mensaje,
     }
     handler = handlers.get(estado)
     if handler:
@@ -343,8 +343,8 @@ def _turno_fecha(numero: str, texto: str, msg):
 
     if fecha > limite:
         msg.body(
-            f"❌ Solo podemos tomar turnos hasta el {limite.strftime('%d/%m/%Y')}."
-
+            f"❌ Solo podemos tomar turnos hasta el {limite.strftime('%d/%m/%Y')}.
+"
             f"Ingresá una fecha dentro de ese plazo:"
         )
         return
@@ -520,35 +520,62 @@ def _cancelar_mi_turno(numero: str, texto: str, msg):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _iniciar_mensaje(numero: str, msg):
-    from db import profesional_acepta_mensajes
     paciente = identificar_paciente_por_telefono(numero)
-
-    # Si tiene un profesional asociado, verificar si acepta mensajes
     if paciente:
-        from db import get_patient_appointments
-        turnos = get_patient_appointments(paciente["id"])
-        if turnos:
-            prof_id = turnos[0]["professional_id"]
-            if not profesional_acepta_mensajes(prof_id):
-                msg.body(
-                    "ℹ️ Los mensajes no están disponibles para este profesional.\n"
+        set_user_state(numero, "patient_id", paciente["id"])
 
-                    "Para consultas comunicate al consultorio directamente."
-                )
-                return
-        set_user_states(numero, {"patient_id": paciente["id"], "estado": "MENSAJE"})
-    else:
-        set_user_state(numero, "estado", "MENSAJE")
+    # Listar solo profesionales que aceptan mensajes
+    profs_con_msj = [p for p in listar_profesionales()
+                     if p.get("acepta_mensajes", True)]
+
+    if not profs_con_msj:
+        msg.body(
+            "ℹ️ Los mensajes no están disponibles en este momento.\n"
+            "Para consultas comunicate al consultorio directamente."
+        )
+        return
+
+    if len(profs_con_msj) == 1:
+        set_user_states(numero, {
+            "msg_prof_id": profs_con_msj[0]["id"],
+            "estado":      "MENSAJE",
+        })
+        msg.body("Escribí tu mensaje y te respondemos a la brevedad:")
+        return
+
+    lineas = [f"{i+1} {p['last_name']}, {p['first_name']}"
+              + (f" — {p['specialty']}" if p.get("specialty") else "")
+              for i, p in enumerate(profs_con_msj)]
+
+    set_user_states(numero, {
+        "profs_msj_ids": [p["id"] for p in profs_con_msj],
+        "estado":        "ELEGIR_PROF_MENSAJE",
+    })
+    msg.body("¿A quién querés enviarle el mensaje?\n\n" + "\n".join(lineas))
+
+
+def _elegir_prof_mensaje(numero: str, texto: str, msg):
+    ids = get_user_state(numero, "profs_msj_ids", [])
+    try:
+        idx  = int(texto.strip()) - 1
+        prof_id = ids[idx]
+    except (ValueError, IndexError):
+        msg.body("❌ Opción inválida. Elegí un número de la lista:")
+        return
+    set_user_states(numero, {
+        "msg_prof_id": prof_id,
+        "estado":      "MENSAJE",
+    })
     msg.body("Escribí tu mensaje y te respondemos a la brevedad:")
 
 
 def _recibir_mensaje(numero: str, texto: str, msg):
     patient_id = get_user_state(numero, "patient_id")
+    prof_id    = get_user_state(numero, "msg_prof_id")
     if patient_id:
-        guardar_mensaje(patient_id, texto)
+        guardar_mensaje(patient_id, texto, prof_id)
     msg.body("✅ Mensaje recibido. Te respondemos pronto.")
     set_user_state(numero, "estado", "MENU")
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PROFESIONALES — listado con especialidades (punto 5)
