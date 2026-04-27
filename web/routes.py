@@ -1,4 +1,3 @@
-
 """
 web/routes.py — rutas del panel web E-BOT PRO 🦙🔥
 
@@ -526,3 +525,4 @@ def toggle_mensajes_prof(prof_id):
     estado = "activados" if nuevo else "desactivados"
     flash(f"✅ Mensajes {estado} para {prof['last_name']}, {prof['first_name']}.")
     return redirect(url_for("web.profesionales"))
+
